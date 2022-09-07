@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 
 	_ "modernc.org/sqlite"
 
@@ -17,7 +16,7 @@ type SafariExtractor struct {
 }
 
 // Join with latest visit to get title, since safari doesn't store title with URL
-const queryUrls = `
+const safariUrls = `
 SELECT
   u.url AS url,
   v.title AS title
@@ -33,21 +32,25 @@ FROM
       history_item) v ON v.history_item = u.id;
 `
 
+const safariVisits = `
+SELECT
+  datetime(visit_time + 978307200, 'unixepoch') AS visit_date,
+  u.url
+FROM
+  history_visits v
+  INNER JOIN history_items u ON v.history_item = u.id;
+`
+
 func (a *SafariExtractor) GetName() string {
 	return a.Name
 }
 
-func (a *SafariExtractor) GetAllUrls() ([]types.UrlRow, error) {
-	log.Println("["+a.Name+"] reading", a.HistoryDBPath)
-	conn, err := sql.Open("sqlite", a.HistoryDBPath)
+func (a *SafariExtractor) GetDBPath() string {
+	return a.HistoryDBPath
+}
 
-	if err != nil {
-		fmt.Println("could not connect to db at", a.HistoryDBPath, err)
-		return nil, err
-	}
-	defer conn.Close()
-
-	rows, err := conn.QueryContext(context.TODO(), queryUrls)
+func (a *SafariExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+	rows, err := conn.QueryContext(ctx, safariUrls)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -75,6 +78,6 @@ func (a *SafariExtractor) GetAllUrls() ([]types.UrlRow, error) {
 	return urls, nil
 }
 
-func (a *SafariExtractor) GetAllVisits() ([]types.VisitRow, error) {
+func (a *SafariExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
 	return []types.VisitRow{}, nil
 }

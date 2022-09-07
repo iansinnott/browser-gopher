@@ -5,11 +5,15 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
+	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+
+	_ "modernc.org/sqlite"
 
 	ex "github.com/iansinnott/browser-gopher/pkg/extractors"
 	"github.com/iansinnott/browser-gopher/pkg/types"
@@ -24,12 +28,22 @@ import (
 // }
 
 func PopulateAll(extractor types.Extractor) error {
-	urls, err := extractor.GetAllUrls()
+	log.Println("["+extractor.GetName()+"] reading", extractor.GetDBPath())
+	conn, err := sql.Open("sqlite", extractor.GetDBPath())
+	ctx := context.TODO()
+
+	if err != nil {
+		fmt.Println("could not connect to db at", extractor.GetDBPath(), err)
+		return err
+	}
+	defer conn.Close()
+
+	urls, err := extractor.GetAllUrls(ctx, conn)
 	if err != nil {
 		return err
 	}
 
-	visits, err := extractor.GetAllVisits()
+	visits, err := extractor.GetAllVisits(ctx, conn)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

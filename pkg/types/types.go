@@ -1,6 +1,10 @@
 package types
 
-import "time"
+import (
+	"context"
+	"database/sql"
+	"time"
+)
 
 type UrlRow struct {
 	Url         string
@@ -15,6 +19,7 @@ type VisitRow struct {
 
 type Extractor interface {
 	GetName() string
-	GetAllUrls() ([]UrlRow, error)
-	GetAllVisits() ([]VisitRow, error)
+	GetDBPath() string
+	GetAllUrls(ctx context.Context, conn *sql.DB) ([]UrlRow, error)
+	GetAllVisits(ctx context.Context, conn *sql.DB) ([]VisitRow, error)
 }

@@ -5,10 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
-	"log"
 	"path/filepath"
-
-	_ "modernc.org/sqlite"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 )
@@ -40,17 +37,12 @@ func (a *FirefoxExtractor) GetName() string {
 	return a.Name
 }
 
-func (a *FirefoxExtractor) GetAllUrls() ([]types.UrlRow, error) {
-	log.Println("["+a.Name+"] reading", a.HistoryDBPath)
-	conn, err := sql.Open("sqlite", a.HistoryDBPath)
+func (a *FirefoxExtractor) GetDBPath() string {
+	return a.HistoryDBPath
+}
 
-	if err != nil {
-		fmt.Println("could not connect to db at", a.HistoryDBPath, err)
-		return nil, err
-	}
-	defer conn.Close()
-
-	rows, err := conn.QueryContext(context.TODO(), firefoxUrls)
+func (a *FirefoxExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+	rows, err := conn.QueryContext(ctx, firefoxUrls)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -78,7 +70,7 @@ func (a *FirefoxExtractor) GetAllUrls() ([]types.UrlRow, error) {
 	return urls, nil
 }
 
-func (a *FirefoxExtractor) GetAllVisits() ([]types.VisitRow, error) {
+func (a *FirefoxExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
 	return []types.VisitRow{}, nil
 }
 
