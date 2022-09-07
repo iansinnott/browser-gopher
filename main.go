@@ -49,8 +49,8 @@ func PopulateAll(extractor types.Extractor) error {
 		os.Exit(1)
 	}
 
-	log.Println("["+extractor.GetName()+"] found urls", len(urls))
-	log.Println("["+extractor.GetName()+"] found visits", len(visits))
+	log.Println("["+extractor.GetName()+"]\tfound urls", len(urls))
+	log.Println("["+extractor.GetName()+"]\tfound visits", len(visits))
 
 	return nil
 }
@@ -79,35 +79,42 @@ func main() {
 		},
 	}
 
-	ffdbs, err := ex.FindFirefoxDBs(expanduser("~/Library/ApplicationSupport/Firefox/Profiles/"))
+	ffdbs, err := ex.FindFirefoxDBs(expanduser("~/Library/Application Support/Firefox/Profiles/"))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
 	for _, ffdb := range ffdbs {
-		extractors = append(extractors, &ex.FirefoxExtractor{
+		extractors = append(extractors, &ex.ChromiumExtractor{
 			Name:          "firefox",
 			HistoryDBPath: ffdb,
 		})
 	}
 
-	switch *browserName {
-	case "safari", "firefox":
-		var extractor types.Extractor
+	chdbs, err := ex.FindChromiumDBs(expanduser("~/Library/Application Support/Google/Chrome/"))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
+	for _, chdb := range chdbs {
+		extractors = append(extractors, &ex.ChromiumExtractor{
+			Name:          "chrome",
+			HistoryDBPath: chdb,
+		})
+	}
+
+	switch *browserName {
+	case "safari", "firefox", "chrome":
 		for _, x := range extractors {
 			if x.GetName() == *browserName {
-				extractor = x
+				err = PopulateAll(x)
+				if err != nil {
+					log.Printf("Error with extractor: %+v\n", x)
+				}
 			}
 		}
-
-		if extractor == nil {
-			fmt.Println("Could not find extractor for", *browserName)
-			os.Exit(1)
-		}
-
-		err = PopulateAll(extractor)
 	case "":
 		errs := []error{}
 		// Given the empty string populate all browsers
