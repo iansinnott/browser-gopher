@@ -1,6 +1,11 @@
 package util
 
-import "time"
+import (
+	"fmt"
+	"os"
+	"strings"
+	"time"
+)
 
 const SQLiteDateTime = "2006-01-02 15:04:05"
 
@@ -15,4 +20,15 @@ const SQLiteDateTime = "2006-01-02 15:04:05"
 // visually for debugging.
 func ParseSQLiteDatetime(s string) (time.Time, error) {
 	return time.Parse(SQLiteDateTime, s)
+}
+
+// Expand tilde in path strings
+func Expanduser(path string) string {
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println("could not get user home", err)
+		os.Exit(1)
+	}
+
+	return strings.Replace(path, "~", userHome, 1)
 }

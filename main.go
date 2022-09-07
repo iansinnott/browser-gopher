@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	_ "modernc.org/sqlite"
 
@@ -55,16 +54,6 @@ func PopulateAll(extractor types.Extractor) error {
 	return nil
 }
 
-func expanduser(path string) string {
-	userHome, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println("could not get user home", err)
-		os.Exit(1)
-	}
-
-	return strings.Replace(path, "~", userHome, 1)
-}
-
 func main() {
 	var err error
 
@@ -72,41 +61,14 @@ func main() {
 
 	flag.Parse()
 
-	extractors := []types.Extractor{
-		&ex.SafariExtractor{
-			Name:          "safari",
-			HistoryDBPath: expanduser("~/Library/Safari/History.db"),
-		},
-	}
-
-	ffdbs, err := ex.FindFirefoxDBs(expanduser("~/Library/Application Support/Firefox/Profiles/"))
+	extractors, err := ex.BuildExtractorList()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("error getting extractors", err)
 		os.Exit(1)
-	}
-
-	for _, ffdb := range ffdbs {
-		extractors = append(extractors, &ex.FirefoxExtractor{
-			Name:          "firefox",
-			HistoryDBPath: ffdb,
-		})
-	}
-
-	chdbs, err := ex.FindChromiumDBs(expanduser("~/Library/Application Support/Google/Chrome/"))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	for _, chdb := range chdbs {
-		extractors = append(extractors, &ex.ChromiumExtractor{
-			Name:          "chrome",
-			HistoryDBPath: chdb,
-		})
 	}
 
 	switch *browserName {
-	case "safari", "firefox", "chrome":
+	case "safari", "firefox", "chrome", "vivaldi":
 		for _, x := range extractors {
 			if x.GetName() == *browserName {
 				err = PopulateAll(x)

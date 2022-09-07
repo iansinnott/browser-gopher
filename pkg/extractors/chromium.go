@@ -11,11 +11,6 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
 
-type ChromiumExtractor struct {
-	Name          string
-	HistoryDBPath string
-}
-
 const chromiumUrls = `
 SELECT
 	url,
@@ -32,6 +27,11 @@ FROM
   visits v
   INNER JOIN urls u ON v.url = u.id;
 `
+
+type ChromiumExtractor struct {
+	Name          string
+	HistoryDBPath string
+}
 
 func (a *ChromiumExtractor) GetName() string {
 	return a.Name
