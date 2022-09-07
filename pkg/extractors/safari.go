@@ -8,6 +8,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
+	"github.com/iansinnott/browser-gopher/pkg/util"
 )
 
 type SafariExtractor struct {
@@ -34,7 +35,7 @@ FROM
 
 const safariVisits = `
 SELECT
-  datetime(visit_time + 978307200, 'unixepoch') AS visit_date,
+  datetime(visit_time + 978307200, 'unixepoch') AS time,
   u.url
 FROM
   history_visits v
@@ -79,5 +80,38 @@ func (a *SafariExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types
 }
 
 func (a *SafariExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
-	return []types.VisitRow{}, nil
+	rows, err := conn.QueryContext(ctx, safariVisits)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var visits []types.VisitRow
+
+	for rows.Next() {
+		var x types.VisitRow
+		var ts string
+		err = rows.Scan(&ts, &x.Url)
+		if err != nil {
+			fmt.Println("individual row error", err)
+			return nil, err
+		}
+
+		t, err := util.ParseSQLiteDatetime(ts)
+		if err != nil {
+			fmt.Println("datetime parsing error", ts, err)
+			return nil, err
+		}
+		x.Datetime = t
+		visits = append(visits, x)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		fmt.Println("row error", err)
+		return nil, err
+	}
+
+	return visits, nil
 }

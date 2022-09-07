@@ -49,8 +49,8 @@ func PopulateAll(extractor types.Extractor) error {
 		os.Exit(1)
 	}
 
-	log.Println("[safari] found urls", len(urls))
-	log.Println("[safari] found visits", len(visits))
+	log.Println("["+extractor.GetName()+"] found urls", len(urls))
+	log.Println("["+extractor.GetName()+"] found visits", len(visits))
 
 	return nil
 }
