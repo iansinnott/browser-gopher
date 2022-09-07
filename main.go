@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	_ "modernc.org/sqlite"
 
@@ -32,10 +33,19 @@ func PopulateAll(extractor types.Extractor) error {
 	ctx := context.TODO()
 
 	if err != nil {
-		fmt.Println("could not connect to db at", extractor.GetDBPath(), err)
+		log.Println("could not connect to db at", extractor.GetDBPath(), err)
 		return err
 	}
 	defer conn.Close()
+
+	_, err = extractor.VerifyConnection(ctx, conn)
+	if err != nil {
+		log.Println("[err] Could read from DB", extractor.GetDBPath())
+		if strings.Contains(err.Error(), "SQLITE_BUSY") {
+			log.Println("[ @todo ] Database is locked")
+		}
+		return err
+	}
 
 	urls, err := extractor.GetAllUrls(ctx, conn)
 	if err != nil {
@@ -44,7 +54,7 @@ func PopulateAll(extractor types.Extractor) error {
 
 	visits, err := extractor.GetAllVisits(ctx, conn)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 
@@ -63,12 +73,11 @@ func main() {
 
 	extractors, err := ex.BuildExtractorList()
 	if err != nil {
-		fmt.Println("error getting extractors", err)
+		log.Println("error getting extractors", err)
 		os.Exit(1)
 	}
 
-	switch *browserName {
-	case "safari", "firefox", "chrome", "vivaldi":
+	if *browserName != "" {
 		for _, x := range extractors {
 			if x.GetName() == *browserName {
 				err = PopulateAll(x)
@@ -77,9 +86,10 @@ func main() {
 				}
 			}
 		}
-	case "":
+	} else {
 		errs := []error{}
-		// Given the empty string populate all browsers
+
+		// Without a browser name, populate everything
 		for _, x := range extractors {
 			e := PopulateAll(x)
 			if e != nil {
@@ -89,13 +99,10 @@ func main() {
 
 		if len(errs) > 0 {
 			for _, e := range errs {
-				fmt.Println(e)
+				log.Println(e)
 			}
 			err = fmt.Errorf("one or more browsers failed")
 		}
-	default:
-		fmt.Printf(`Browser not supported "%s"\n`, *browserName)
-		os.Exit(1)
 	}
 
 	if err != nil {

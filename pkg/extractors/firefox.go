@@ -42,6 +42,15 @@ func (a *FirefoxExtractor) GetDBPath() string {
 	return a.HistoryDBPath
 }
 
+func (a *FirefoxExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
+	row := conn.QueryRowContext(ctx, "SELECT count(*) FROM moz_places;")
+	err := row.Err()
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (a *FirefoxExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, firefoxUrls)
 	if err != nil {

@@ -50,6 +50,15 @@ func (a *SafariExtractor) GetDBPath() string {
 	return a.HistoryDBPath
 }
 
+func (a *SafariExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
+	row := conn.QueryRowContext(ctx, "SELECT count(*) FROM history_items;")
+	err := row.Err()
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (a *SafariExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, safariUrls)
 	if err != nil {

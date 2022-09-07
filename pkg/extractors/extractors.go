@@ -32,8 +32,32 @@ func BuildExtractorList() ([]types.Extractor, error) {
 			},
 		},
 		{
+			name:    "brave",
+			path:    util.Expanduser("~/Library/Application Support/BraveSoftware/Brave-Browser"),
+			findDBs: FindChromiumDBs,
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
+		{
+			name:    "arc",
+			path:    util.Expanduser("~/Library/Application Support/Arc/User Data"),
+			findDBs: FindChromiumDBs,
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
+		{
 			name:    "vivaldi",
 			path:    util.Expanduser("~/Library/Application Support/Vivaldi"),
+			findDBs: FindChromiumDBs,
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
+		{
+			name:    "sidekick",
+			path:    util.Expanduser("~/Library/Application Support/Sidekick"),
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -66,6 +90,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 	for _, x := range pathsToTry {
 		stat, err := os.Stat(x.path)
 		if err != nil || !stat.IsDir() {
+			// @todo Put this into a debug logger to avoid noise
 			log.Println("Skipping invalid path:", x.path)
 			continue
 		}

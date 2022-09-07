@@ -41,6 +41,15 @@ func (a *ChromiumExtractor) GetDBPath() string {
 	return a.HistoryDBPath
 }
 
+func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
+	row := conn.QueryRowContext(ctx, "SELECT count(*) FROM urls;")
+	err := row.Err()
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (a *ChromiumExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, chromiumUrls)
 	if err != nil {
