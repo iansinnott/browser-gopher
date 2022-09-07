@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/iansinnott/browser-gopher/pkg/extractors"
+	ex "github.com/iansinnott/browser-gopher/pkg/extractors"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 )
 
@@ -59,14 +59,27 @@ func main() {
 	flag.Parse()
 
 	extractors := []types.Extractor{
-		&extractors.SafariExtractor{
+		&ex.SafariExtractor{
 			Name:          "safari",
 			HistoryDBPath: expanduser("~/Library/Safari/History.db"),
 		},
 	}
 
+	ffdbs, err := ex.FindFirefoxDBs(expanduser("~/Library/ApplicationSupport/Firefox/Profiles/"))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for _, ffdb := range ffdbs {
+		extractors = append(extractors, &ex.FirefoxExtractor{
+			Name:          "firefox",
+			HistoryDBPath: ffdb,
+		})
+	}
+
 	switch *browserName {
-	case "safari":
+	case "safari", "firefox":
 		var extractor types.Extractor
 
 		for _, x := range extractors {

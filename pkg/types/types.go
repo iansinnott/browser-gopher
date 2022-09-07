@@ -3,8 +3,9 @@ package types
 import "time"
 
 type UrlRow struct {
-	Url   string
-	Title *string // Nullable
+	Url         string
+	Title       *string // Nullable
+	Description *string // Nullable
 }
 
 type VisitRow struct {
