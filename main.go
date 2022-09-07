@@ -86,7 +86,7 @@ func main() {
 	}
 
 	for _, ffdb := range ffdbs {
-		extractors = append(extractors, &ex.ChromiumExtractor{
+		extractors = append(extractors, &ex.FirefoxExtractor{
 			Name:          "firefox",
 			HistoryDBPath: ffdb,
 		})
