@@ -1,4 +1,4 @@
-package safari
+package extractors
 
 import (
 	"context"
@@ -32,6 +32,10 @@ FROM
     GROUP BY
       history_item) v ON v.history_item = u.id;
 `
+
+func (a *SafariExtractor) GetName() string {
+	return a.Name
+}
 
 func (a *SafariExtractor) GetAllUrls() ([]types.UrlRow, error) {
 	log.Println("["+a.Name+"] reading", a.HistoryDBPath)

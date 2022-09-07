@@ -13,6 +13,7 @@ type VisitRow struct {
 }
 
 type Extractor interface {
+	GetName() string
 	GetAllUrls() ([]UrlRow, error)
 	GetAllVisits() ([]VisitRow, error)
 }

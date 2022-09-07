@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/iansinnott/browser-gopher/pkg/safari"
+	"github.com/iansinnott/browser-gopher/pkg/extractors"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 )
 
@@ -30,6 +30,10 @@ func PopulateAll(extractor types.Extractor) error {
 	}
 
 	visits, err := extractor.GetAllVisits()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	log.Println("[safari] found urls", len(urls))
 	log.Println("[safari] found visits", len(visits))
@@ -54,18 +58,45 @@ func main() {
 
 	flag.Parse()
 
-	if browserName == nil || len(*browserName) == 0 {
-		fmt.Println("No browser name specified. Use the -browser flag")
-		os.Exit(1)
+	extractors := []types.Extractor{
+		&extractors.SafariExtractor{
+			Name:          "safari",
+			HistoryDBPath: expanduser("~/Library/Safari/History.db"),
+		},
 	}
 
 	switch *browserName {
 	case "safari":
-		safari := safari.SafariExtractor{
-			Name:          "safari",
-			HistoryDBPath: expanduser("~/Library/Safari/History.db"),
+		var extractor types.Extractor
+
+		for _, x := range extractors {
+			if x.GetName() == *browserName {
+				extractor = x
+			}
 		}
-		err = PopulateAll(&safari)
+
+		if extractor == nil {
+			fmt.Println("Could not find extractor for", *browserName)
+			os.Exit(1)
+		}
+
+		err = PopulateAll(extractor)
+	case "":
+		errs := []error{}
+		// Given the empty string populate all browsers
+		for _, x := range extractors {
+			e := PopulateAll(x)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+
+		if len(errs) > 0 {
+			for _, e := range errs {
+				fmt.Println(e)
+			}
+			err = fmt.Errorf("one or more browsers failed")
+		}
 	default:
 		fmt.Printf(`Browser not supported "%s"\n`, *browserName)
 		os.Exit(1)
