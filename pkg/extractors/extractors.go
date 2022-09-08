@@ -41,6 +41,14 @@ func BuildExtractorList() ([]types.Extractor, error) {
 			},
 		},
 		{
+			name:    "brave-beta",
+			path:    util.Expanduser("~/Library/Application Support/BraveSoftware/Brave-Browser-Beta"),
+			findDBs: FindChromiumDBs,
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
+		{
 			name:    "arc",
 			path:    util.Expanduser("~/Library/Application Support/Arc/User Data"),
 			findDBs: FindChromiumDBs,
