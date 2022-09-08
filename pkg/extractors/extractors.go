@@ -85,6 +85,20 @@ func BuildExtractorList() ([]types.Extractor, error) {
 				return &SafariExtractor{Name: name, HistoryDBPath: dbPath}
 			},
 		},
+		{
+			name: "orion",
+			path: util.Expanduser("~/Library/Application Support/Orion/Defaults/"),
+			findDBs: func(s string) ([]string, error) {
+				dbPath := s + "history"
+				if _, err := os.Stat(dbPath); err != nil {
+					return nil, err
+				}
+				return []string{dbPath}, nil
+			},
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &OrionExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
 	}
 
 	for _, x := range pathsToTry {

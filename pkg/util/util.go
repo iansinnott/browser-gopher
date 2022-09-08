@@ -22,6 +22,11 @@ func ParseSQLiteDatetime(s string) (time.Time, error) {
 	return time.Parse(SQLiteDateTime, s)
 }
 
+// A quick helper for parsing iso time because I find it hard to remember the const name
+func ParseISODatetime(s string) (time.Time, error) {
+	return time.Parse(time.RFC3339, s)
+}
+
 // Expand tilde in path strings
 func Expanduser(path string) string {
 	userHome, err := os.UserHomeDir()
