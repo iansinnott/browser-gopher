@@ -23,6 +23,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 	result := []types.Extractor{}
 
 	pathsToTry := []pathSpec{
+		// Chrome-like
 		{
 			name:    "chrome",
 			path:    util.Expanduser("~/Library/Application Support/Google/Chrome/"),
@@ -64,6 +65,17 @@ func BuildExtractorList() ([]types.Extractor, error) {
 			},
 		},
 		{
+			name:    "edge",
+			path:    util.Expanduser("~/Library/Application Support/Microsoft Edge"),
+			findDBs: FindChromiumDBs,
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
+
+		// Firefox-like
+		// @todo What is the path for FF dev edition?
+		{
 			name:    "firefox",
 			path:    util.Expanduser("~/Library/Application Support/Firefox/Profiles/"),
 			findDBs: FindFirefoxDBs,
@@ -71,6 +83,9 @@ func BuildExtractorList() ([]types.Extractor, error) {
 				return &FirefoxExtractor{Name: name, HistoryDBPath: dbPath}
 			},
 		},
+
+		// Firefox-like
+		// @todo What is the path for safari preview edition?
 		{
 			name: "safari",
 			path: util.Expanduser("~/Library/Safari/"),
@@ -85,6 +100,8 @@ func BuildExtractorList() ([]types.Extractor, error) {
 				return &SafariExtractor{Name: name, HistoryDBPath: dbPath}
 			},
 		},
+
+		// Orion
 		{
 			name: "orion",
 			path: util.Expanduser("~/Library/Application Support/Orion/Defaults/"),
