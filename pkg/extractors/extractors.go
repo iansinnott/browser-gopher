@@ -99,6 +99,24 @@ func BuildExtractorList() ([]types.Extractor, error) {
 				return &OrionExtractor{Name: name, HistoryDBPath: dbPath}
 			},
 		},
+
+		// @note Of all the browsers listed above sigmaos seems to be the most
+		// actively changing with the most novel data model. So this may well break
+		// with some future update.
+		{
+			name: "sigmaos",
+			path: util.Expanduser("~/Library/Containers/com.sigmaos.sigmaos.macos/Data/Library/Application Support/SigmaOS/"),
+			findDBs: func(s string) ([]string, error) {
+				dbPath := s + "Model.sqlite"
+				if _, err := os.Stat(dbPath); err != nil {
+					return nil, err
+				}
+				return []string{dbPath}, nil
+			},
+			createExtractor: func(name, dbPath string) types.Extractor {
+				return &SigmaOSExtractor{Name: name, HistoryDBPath: dbPath}
+			},
+		},
 	}
 
 	for _, x := range pathsToTry {
