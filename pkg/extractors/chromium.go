@@ -14,7 +14,8 @@ import (
 const chromiumUrls = `
 SELECT
 	url,
-	title
+	title,
+	datetime(last_visit_time / 1e6 + strftime('%s', '1601-01-01'), 'unixepoch') as last_visit_date
 FROM
 	urls;
 `
@@ -25,7 +26,9 @@ SELECT
   u.url
 FROM
   visits v
-  INNER JOIN urls u ON v.url = u.id;
+  INNER JOIN urls u ON v.url = u.id
+ORDER BY 
+	visit_date DESC;
 `
 
 type ChromiumExtractor struct {
@@ -39,6 +42,10 @@ func (a *ChromiumExtractor) GetName() string {
 
 func (a *ChromiumExtractor) GetDBPath() string {
 	return a.HistoryDBPath
+}
+
+func (a *ChromiumExtractor) SetDBPath(s string) {
+	a.HistoryDBPath = s
 }
 
 func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
@@ -62,11 +69,17 @@ func (a *ChromiumExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]typ
 
 	for rows.Next() {
 		var x types.UrlRow
-		err = rows.Scan(&x.Url, &x.Title)
+		var visit_time string
+		err = rows.Scan(&x.Url, &x.Title, &visit_time)
 		if err != nil {
 			fmt.Println("individual row error", err)
 			return nil, err
 		}
+		t, err := util.ParseSQLiteDatetime(visit_time)
+		if err != nil {
+			fmt.Println("could not parse datetime", err)
+		}
+		x.LastVisit = &t
 		urls = append(urls, x)
 	}
 

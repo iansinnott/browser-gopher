@@ -8,8 +8,9 @@ import (
 
 type UrlRow struct {
 	Url         string
-	Title       *string // Nullable
-	Description *string // Nullable
+	Title       *string    // Nullable
+	Description *string    // Nullable
+	LastVisit   *time.Time // Nullable
 }
 
 type VisitRow struct {
@@ -20,6 +21,7 @@ type VisitRow struct {
 type Extractor interface {
 	GetName() string
 	GetDBPath() string
+	SetDBPath(string)
 	GetAllUrls(ctx context.Context, conn *sql.DB) ([]UrlRow, error)
 	GetAllVisits(ctx context.Context, conn *sql.DB) ([]VisitRow, error)
 

@@ -41,6 +41,10 @@ func (a *OrionExtractor) GetDBPath() string {
 	return a.HistoryDBPath
 }
 
+func (a *OrionExtractor) SetDBPath(s string) {
+	a.HistoryDBPath = s
+}
+
 func (a *OrionExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
 	row := conn.QueryRowContext(ctx, "SELECT count(*) FROM history_items;")
 	err := row.Err()

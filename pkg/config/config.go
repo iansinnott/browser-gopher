@@ -9,7 +9,8 @@ import (
 )
 
 type config struct {
-	AppDataPath string
+	AppDataPath     string
+	SearchIndexPath string
 }
 
 // initialize the config object and perform setup tasks.
@@ -22,6 +23,8 @@ func newConfig() *config {
 	if err != nil {
 		log.Fatal("could not create app data path: "+conf.AppDataPath, err)
 	}
+
+	conf.SearchIndexPath = filepath.Join(conf.AppDataPath, "searchindex.bleve")
 
 	return conf
 }

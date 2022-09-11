@@ -20,7 +20,8 @@ const firefoxUrls = `
 SELECT
 	url,
 	title,
-	description
+	description,
+  datetime(last_visit_date / 1e6, 'unixepoch') as last_visit_date
 FROM
 	moz_places;
 `
@@ -40,6 +41,9 @@ func (a *FirefoxExtractor) GetName() string {
 
 func (a *FirefoxExtractor) GetDBPath() string {
 	return a.HistoryDBPath
+}
+func (a *FirefoxExtractor) SetDBPath(s string) {
+	a.HistoryDBPath = s
 }
 
 func (a *FirefoxExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
@@ -63,11 +67,20 @@ func (a *FirefoxExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]type
 
 	for rows.Next() {
 		var x types.UrlRow
-		err = rows.Scan(&x.Url, &x.Title, &x.Description)
+		var visit_time *string
+		err = rows.Scan(&x.Url, &x.Title, &x.Description, &visit_time)
 		if err != nil {
 			fmt.Println("individual row error", err)
 			return nil, err
 		}
+		if visit_time != nil {
+			t, err := util.ParseSQLiteDatetime(*visit_time)
+			if err != nil {
+				fmt.Println("could not parse datetime", err)
+			}
+			x.LastVisit = &t
+		}
+
 		urls = append(urls, x)
 	}
 

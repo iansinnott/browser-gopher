@@ -12,10 +12,14 @@ import (
 const sigmaUrls = `
 SELECT
   u.ZURL AS url,
-  v.ZTITLE AS title
+  v.ZTITLE AS title,
+	DATETIME(MAX(v.ZVISITTIME) + 978307200, 'unixepoch') AS visit_time
 FROM
   ZHISTORYITEM u
-  INNER JOIN ZHISTORYVISIT v ON u.Z_PK = v.ZHISTORYITEM;
+  INNER JOIN ZHISTORYVISIT v ON u.Z_PK = v.ZHISTORYITEM
+GROUP BY v.ZHISTORYITEM
+ORDER BY
+  v.ZVISITTIME DESC;
 `
 
 const sigmaVisits = `
@@ -41,6 +45,9 @@ func (a *SigmaOSExtractor) GetName() string {
 func (a *SigmaOSExtractor) GetDBPath() string {
 	return a.HistoryDBPath
 }
+func (a *SigmaOSExtractor) SetDBPath(s string) {
+	a.HistoryDBPath = s
+}
 
 func (a *SigmaOSExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
 	row := conn.QueryRowContext(ctx, "SELECT count(*) FROM ZHISTORYITEM;")
@@ -63,11 +70,17 @@ func (a *SigmaOSExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]type
 
 	for rows.Next() {
 		var x types.UrlRow
-		err = rows.Scan(&x.Url, &x.Title)
+		var visit_time string
+		err = rows.Scan(&x.Url, &x.Title, &visit_time)
 		if err != nil {
 			fmt.Println("individual row error", err)
 			return nil, err
 		}
+		t, err := util.ParseSQLiteDatetime(visit_time)
+		if err != nil {
+			fmt.Println("could not parse datetime", err)
+		}
+		x.LastVisit = &t
 		urls = append(urls, x)
 	}
 

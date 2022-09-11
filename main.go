@@ -9,8 +9,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -27,6 +29,27 @@ import (
 // 	cmd.Execute()
 // }
 
+func copyPath(frm, to string) error {
+	dest, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+
+	src, err := os.Open(frm)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func PopulateAll(extractor types.Extractor) error {
 	log.Println("["+extractor.GetName()+"] reading", extractor.GetDBPath())
 	conn, err := sql.Open("sqlite", extractor.GetDBPath())
@@ -38,13 +61,34 @@ func PopulateAll(extractor types.Extractor) error {
 	}
 	defer conn.Close()
 
+	// Handle the case where the database is in use, or return if the database cannot be read or copied.
 	_, err = extractor.VerifyConnection(ctx, conn)
 	if err != nil {
-		log.Println("[err] Could read from DB", extractor.GetDBPath())
-		if strings.Contains(err.Error(), "SQLITE_BUSY") {
-			log.Println("[ @todo ] Database is locked")
+		if !strings.Contains(err.Error(), "SQLITE_BUSY") {
+			log.Println("[err] Could read from DB", extractor.GetDBPath())
+			return err
 		}
-		return err
+
+		log.Println("[" + extractor.GetName() + "] database is locked. copying for read access.")
+
+		tmpPath := filepath.Join(os.TempDir(), extractor.GetName()+"_backup.sqlite")
+
+		err := copyPath(extractor.GetDBPath(), tmpPath)
+		if err != nil {
+			fmt.Println("could not copy:", tmpPath)
+			return err
+		}
+
+		// Update extractor to use the tmp path
+		extractor.SetDBPath(tmpPath)
+
+		defer func() {
+			if os.Remove(tmpPath) != nil {
+				log.Println("could not remove tmp file:", tmpPath)
+			}
+		}()
+
+		return PopulateAll(extractor)
 	}
 
 	urls, err := extractor.GetAllUrls(ctx, conn)
