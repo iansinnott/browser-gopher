@@ -17,7 +17,9 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/iansinnott/browser-gopher/pkg/config"
 	ex "github.com/iansinnott/browser-gopher/pkg/extractors"
+	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 )
 
@@ -104,6 +106,30 @@ func PopulateAll(extractor types.Extractor) error {
 
 	log.Println("["+extractor.GetName()+"]\tfound urls", len(urls))
 	log.Println("["+extractor.GetName()+"]\tfound visits", len(visits))
+
+	db, err := persistence.InitDB(ctx, config.Config)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	for _, x := range urls {
+		err := persistence.InsertURL(ctx, db, &x)
+		if err != nil {
+			log.Println("could not insert row", err)
+		}
+	}
+
+	for _, x := range visits {
+		if x.ExtractorName == "" {
+			x.ExtractorName = extractor.GetName()
+		}
+
+		err := persistence.InsertVisit(ctx, db, &x)
+		if err != nil {
+			log.Println("could not insert row", err)
+		}
+	}
 
 	return nil
 }

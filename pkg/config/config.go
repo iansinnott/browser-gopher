@@ -8,14 +8,15 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
 
-type config struct {
+type AppConfig struct {
 	AppDataPath     string
+	DBPath          string
 	SearchIndexPath string
 }
 
 // initialize the config object and perform setup tasks.
-func newConfig() *config {
-	conf := &config{
+func newConfig() *AppConfig {
+	conf := &AppConfig{
 		AppDataPath: util.Expanduser(filepath.Join("~", ".config", "browser-gopher")),
 	}
 
@@ -24,9 +25,10 @@ func newConfig() *config {
 		log.Fatal("could not create app data path: "+conf.AppDataPath, err)
 	}
 
+	conf.DBPath = filepath.Join(conf.AppDataPath, "db.sqlite")
 	conf.SearchIndexPath = filepath.Join(conf.AppDataPath, "searchindex.bleve")
 
 	return conf
 }
 
-var Config *config = newConfig()
+var Config *AppConfig = newConfig()

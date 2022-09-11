@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/md5"
 	"fmt"
 	"os"
 	"strings"
@@ -36,4 +37,10 @@ func Expanduser(path string) string {
 	}
 
 	return strings.Replace(path, "~", userHome, 1)
+}
+
+func HashMd5String(s string) string {
+	h := md5.New()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

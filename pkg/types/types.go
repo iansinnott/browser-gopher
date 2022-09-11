@@ -16,6 +16,9 @@ type UrlRow struct {
 type VisitRow struct {
 	Url      string
 	Datetime time.Time
+	// The data extractor that created this visit. Not present on URls since URLs
+	// are often visited in multiple browsers.
+	ExtractorName string
 }
 
 type Extractor interface {
