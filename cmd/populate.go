@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// populateCmd represents the populate command
 var populateCmd = &cobra.Command{
 	Use:   "populate",
 	Short: "Populate URLs from all known sources",
@@ -76,15 +75,6 @@ var populateCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(populateCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// populateCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	populateCmd.Flags().StringP("browser", "b", "", "Specify the browser name you'd like to extract")
 }
 
@@ -116,16 +106,21 @@ func PopulateAll(extractor types.Extractor) error {
 			fmt.Println("could not copy:", tmpPath)
 			return err
 		}
-
-		// Update extractor to use the tmp path
-		extractor.SetDBPath(tmpPath)
-
+		// Remove interim file afterwards (otherwise these files eventually take up quite a bit of space)
 		defer func() {
 			if os.Remove(tmpPath) != nil {
 				log.Println("could not remove tmp file:", tmpPath)
 			}
 		}()
 
+		if extractor.GetDBPath() == tmpPath {
+			return fmt.Errorf("recursive populate call detected. db tmp path must be different than initial db path")
+		}
+
+		// Update extractor to use the tmp path
+		extractor.SetDBPath(tmpPath)
+
+		// Retry with udpated db path
 		return PopulateAll(extractor)
 	}
 
@@ -140,8 +135,8 @@ func PopulateAll(extractor types.Extractor) error {
 		os.Exit(1)
 	}
 
-	log.Println("["+extractor.GetName()+"]\tfound urls", len(urls))
-	log.Println("["+extractor.GetName()+"]\tfound visits", len(visits))
+	log.Println("["+extractor.GetName()+"]\turls", len(urls))
+	log.Println("["+extractor.GetName()+"]\tvisits", len(visits))
 
 	db, err := persistence.InitDB(ctx, config.Config)
 	if err != nil {
