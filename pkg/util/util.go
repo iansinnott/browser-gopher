@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/md5"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -43,4 +44,25 @@ func HashMd5String(s string) string {
 	h := md5.New()
 	h.Write([]byte(s))
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func CopyPath(frm, to string) error {
+	dest, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+
+	src, err := os.Open(frm)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
