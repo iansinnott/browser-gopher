@@ -6,6 +6,12 @@ Search, aggregate, backup your browsing history from the command line.
 
 Just started. Currently it extracts and stores all your browsing history in SQLite. It does not yet support search. That's next!
 
+## Supported browsers
+
+For now see the list of extractors here: https://github.com/iansinnott/browser-gopher/blob/master/pkg/extractors/extractors.go#L25
+
+I should probably add a command to print it to stdout though.
+
 ## Why?
 
 I created [BrowserParrot][] to have GUI access to all my browsing history with a quick fuzzy search. This worked out well, but the stack chosen at the time (Clojure/JVM) turned out not to be ideal for the problem.

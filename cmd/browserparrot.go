@@ -16,13 +16,14 @@ import (
 // browserparrotCmd represents the browserparrot command
 var browserparrotCmd = &cobra.Command{
 	Use:   "browserparrot",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Import URL history from a BrowserParrot database",
+	Long: `If you have not previously used BrowserParrot this does not apply. This
+command will import all URLs from BrowserParrot since you may already have
+many URLs in there which are no longer present in the history databases of the
+original browsers.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Using the command without any args will try the default location for the
+BrowserParrot database, and should work in most cases.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		dbPath := cmd.Flag("db-path").Value.String()
 		browserparrot := &extractors.BrowserParrotExtractor{
