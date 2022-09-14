@@ -52,3 +52,5 @@ browser-gopher browserparrot --db-path ~/.config/uncloud/persistory.db
 - a TUI for searching and filtering for a more GUI-like experience
 - full text indexing
   - ideally with more sophisticated extraction mechanisms than previous
+- import history from History Trends Unlimited
+  - It's already in sqlite so should be quick
