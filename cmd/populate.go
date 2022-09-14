@@ -28,9 +28,11 @@ var populateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
-		browserName := cmd.Flag("browser").Value.String()
-		// browserName := flag.String("browser", "", "Specify which browser")
-		// flag.Parse()
+		browserName, err := cmd.Flags().GetString("browser")
+		if err != nil {
+			fmt.Println("could not parse --browser:", err)
+			os.Exit(1)
+		}
 
 		extractors, err := ex.BuildExtractorList()
 		if err != nil {

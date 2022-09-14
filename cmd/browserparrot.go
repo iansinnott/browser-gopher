@@ -25,12 +25,17 @@ original browsers.
 Using the command without any args will try the default location for the
 BrowserParrot database, and should work in most cases.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dbPath := cmd.Flag("db-path").Value.String()
+		dbPath, err := cmd.Flags().GetString("db-path")
+		if err != nil {
+			fmt.Println("could not parse --db-path:", err)
+			os.Exit(1)
+		}
+
 		browserparrot := &extractors.BrowserParrotExtractor{
 			HistoryDBPath: util.Expanduser(dbPath),
 			Name:          "browserparrot",
 		}
-		err := PopulateAll(browserparrot)
+		err = PopulateAll(browserparrot)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
