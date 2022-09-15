@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -40,6 +41,35 @@ func InitDB(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	_, err = conn.ExecContext(ctx, initSql)
 
 	return conn, err
+}
+
+func GetLatestTime(ctx context.Context, db *sql.DB) (*time.Time, error) {
+	qry := `
+SELECT
+  last_visit
+FROM
+  urls
+WHERE last_visit NOT NULL
+  AND last_visit > 0
+ORDER BY
+  last_visit DESC
+LIMIT 1;
+	`
+	row := db.QueryRowContext(ctx, qry)
+	if err := row.Err(); err != nil {
+		return nil, err
+	}
+
+	var ts int64
+	err := row.Scan(&ts)
+	if err != nil {
+		return nil, err
+	}
+
+	t := time.Unix(ts, 0)
+
+	return &t, nil
+
 }
 
 func InsertURL(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
