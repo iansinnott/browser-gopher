@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/iansinnott/browser-gopher/pkg/extractors"
+	"github.com/iansinnott/browser-gopher/pkg/populate"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -35,7 +36,7 @@ BrowserParrot database, and should work in most cases.`,
 			HistoryDBPath: util.Expanduser(dbPath),
 			Name:          "browserparrot",
 		}
-		err = PopulateAll(browserparrot)
+		err = populate.PopulateAll(browserparrot)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
