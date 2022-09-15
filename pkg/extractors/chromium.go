@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
@@ -57,7 +58,7 @@ func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) 
 	return true, nil
 }
 
-func (a *ChromiumExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+func (a *ChromiumExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, chromiumUrls)
 	if err != nil {
 		fmt.Println(err)
@@ -92,7 +93,7 @@ func (a *ChromiumExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]typ
 	return urls, nil
 }
 
-func (a *ChromiumExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
+func (a *ChromiumExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
 	rows, err := conn.QueryContext(ctx, chromiumVisits)
 	if err != nil {
 		fmt.Println(err)

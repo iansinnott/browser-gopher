@@ -25,8 +25,8 @@ type Extractor interface {
 	GetName() string
 	GetDBPath() string
 	SetDBPath(string)
-	GetAllUrls(ctx context.Context, conn *sql.DB) ([]UrlRow, error)
-	GetAllVisits(ctx context.Context, conn *sql.DB) ([]VisitRow, error)
+	GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]UrlRow, error)
+	GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]VisitRow, error)
 
 	// Verify that the passed db can actually be connected to. In the case of
 	// sqlite, it's not uncommon for a db to be locked. The Open call will work

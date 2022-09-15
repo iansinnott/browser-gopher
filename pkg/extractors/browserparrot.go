@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 )
@@ -41,7 +42,7 @@ func (a *BrowserParrotExtractor) VerifyConnection(ctx context.Context, conn *sql
 	return true, nil
 }
 
-func (a *BrowserParrotExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+func (a *BrowserParrotExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, browserParrotUrls)
 	if err != nil {
 		fmt.Println(err)
@@ -71,6 +72,6 @@ func (a *BrowserParrotExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) (
 }
 
 // Persistory / browser parrot does not map visits properly as of this commit
-func (a *BrowserParrotExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
+func (a *BrowserParrotExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
 	return []types.VisitRow{}, nil
 }

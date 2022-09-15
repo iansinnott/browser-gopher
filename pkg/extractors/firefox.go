@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
@@ -55,7 +56,7 @@ func (a *FirefoxExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (
 	return true, nil
 }
 
-func (a *FirefoxExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+func (a *FirefoxExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, firefoxUrls)
 	if err != nil {
 		fmt.Println(err)
@@ -93,7 +94,7 @@ func (a *FirefoxExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]type
 	return urls, nil
 }
 
-func (a *FirefoxExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
+func (a *FirefoxExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
 	rows, err := conn.QueryContext(ctx, firefoxVisits)
 	if err != nil {
 		fmt.Println(err)

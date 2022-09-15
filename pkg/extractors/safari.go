@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -63,7 +64,7 @@ func (a *SafariExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (b
 	return true, nil
 }
 
-func (a *SafariExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+func (a *SafariExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, safariUrls)
 	if err != nil {
 		fmt.Println(err)
@@ -92,7 +93,7 @@ func (a *SafariExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types
 	return urls, nil
 }
 
-func (a *SafariExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
+func (a *SafariExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
 	rows, err := conn.QueryContext(ctx, safariVisits)
 	if err != nil {
 		fmt.Println(err)

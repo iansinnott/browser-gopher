@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
@@ -54,7 +55,7 @@ func (a *OrionExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bo
 	return true, nil
 }
 
-func (a *OrionExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+func (a *OrionExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, orionUrls)
 	if err != nil {
 		fmt.Println(err)
@@ -83,7 +84,7 @@ func (a *OrionExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.
 	return urls, nil
 }
 
-func (a *OrionExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
+func (a *OrionExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
 	rows, err := conn.QueryContext(ctx, orionVisits)
 	if err != nil {
 		fmt.Println(err)

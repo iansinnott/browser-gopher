@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
@@ -58,7 +59,7 @@ func (a *SigmaOSExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (
 	return true, nil
 }
 
-func (a *SigmaOSExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]types.UrlRow, error) {
+func (a *SigmaOSExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
 	rows, err := conn.QueryContext(ctx, sigmaUrls)
 	if err != nil {
 		fmt.Println(err)
@@ -93,7 +94,7 @@ func (a *SigmaOSExtractor) GetAllUrls(ctx context.Context, conn *sql.DB) ([]type
 	return urls, nil
 }
 
-func (a *SigmaOSExtractor) GetAllVisits(ctx context.Context, conn *sql.DB) ([]types.VisitRow, error) {
+func (a *SigmaOSExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
 	rows, err := conn.QueryContext(ctx, sigmaVisits)
 	if err != nil {
 		fmt.Println(err)
