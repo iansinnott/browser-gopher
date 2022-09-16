@@ -6,6 +6,7 @@ import (
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/search"
+	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,7 @@ var searchCmd = &cobra.Command{
 			fmt.Println("search error", err)
 			os.Exit(1)
 		}
-		for _, x := range result.Urls {
+		for _, x := range util.ReverseSlice(result.Urls) {
 			fmt.Printf("%v %s %sv\n", x.LastVisit.Format("2006-01-02"), *x.Title, x.Url)
 		}
 		fmt.Printf("Found %d results for \"%s\"\n", result.Count, query)

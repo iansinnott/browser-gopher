@@ -66,3 +66,12 @@ func CopyPath(frm, to string) error {
 
 	return nil
 }
+
+func ReverseSlice[S ~[]E, E any](s S) []E {
+	result := make([]E, len(s))
+	copy(result, s)
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		result[i], result[j] = result[j], result[i]
+	}
+	return result
+}
