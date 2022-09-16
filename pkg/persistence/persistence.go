@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS "urls" (
   "url_md5" VARCHAR(32) PRIMARY KEY NOT NULL,
   "url" TEXT UNIQUE NOT NULL,
   "title" TEXT,
+  "description" TEXT,
   "last_visit" INTEGER
 );
 
@@ -31,9 +32,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS visits_unique ON visits(extractor_name, url_md
 CREATE INDEX IF NOT EXISTS visits_url_md5 ON visits(url_md5);
 `
 
-func InitDB(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
+// Open a connection to the database. Calling code should close the connection when done
+func OpenConnection(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	dbPath := c.DBPath
 	conn, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, err
+}
+
+// Initialize the database. Create tables and indexes
+func InitDB(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
+	conn, err := OpenConnection(ctx, c)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +86,7 @@ LIMIT 1;
 
 func InsertURL(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	const qry = `
-		INSERT OR REPLACE INTO urls(url_md5, url, title, last_visit)
+		INSERT OR REPLACE INTO urls(url_md5, url, title, description, last_visit)
 			VALUES(?, ?, ?, ?);
 	`
 	var lastVisit int64
@@ -83,7 +95,7 @@ func InsertURL(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	}
 	md5 := util.HashMd5String(row.Url)
 
-	_, err := db.ExecContext(ctx, qry, md5, row.Url, row.Title, lastVisit)
+	_, err := db.ExecContext(ctx, qry, md5, row.Url, row.Title, row.Description, lastVisit)
 	return err
 }
 

@@ -148,7 +148,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		stat, err := os.Stat(x.path)
 		if err != nil || !stat.IsDir() {
 			// @todo Put this into a debug logger to avoid noise
-			log.Println("Skipping invalid path:", x.path)
+			log.Println("["+x.name+"] not found. skipping:", x.path)
 			continue
 		}
 

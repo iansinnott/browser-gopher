@@ -18,7 +18,10 @@ SELECT
 	title,
 	datetime(last_visit_time / 1e6 + strftime('%s', '1601-01-01'), 'unixepoch') as last_visit_date
 FROM
-	urls;
+	urls
+WHERE last_visit_date > ?
+ORDER BY
+  last_visit_date DESC;
 `
 
 const chromiumVisits = `
@@ -59,7 +62,7 @@ func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) 
 }
 
 func (a *ChromiumExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
-	rows, err := conn.QueryContext(ctx, chromiumUrls)
+	rows, err := conn.QueryContext(ctx, chromiumUrls, since.Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
