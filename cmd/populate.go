@@ -15,6 +15,7 @@ import (
 	ex "github.com/iansinnott/browser-gopher/pkg/extractors"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/populate"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -43,61 +44,49 @@ var populateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		since := time.Unix(0, 0) // 1970-01-01
+		errs := []error{}
 
-		if onlyLatest {
-			dbConn, err := sql.Open("sqlite", config.Config.DBPath)
-			if err != nil {
-				fmt.Println("could not open our db", err)
-				os.Exit(1)
+		// Without a browser name, populate everything
+		for _, x := range extractors {
+			if browserName != "" && x.GetName() != browserName {
+				continue
 			}
 
-			latestTime, err := persistence.GetLatestTime(cmd.Context(), dbConn)
-			if err != nil {
-				fmt.Println("could not get latest time", err)
-				os.Exit(1)
+			since := time.Unix(0, 0) // 1970-01-01
+			if onlyLatest {
+				dbConn, err := sql.Open("sqlite", config.Config.DBPath)
+				if err != nil {
+					fmt.Println("could not open our db", err)
+					os.Exit(1)
+				}
+
+				latestTime, err := persistence.GetLatestTime(cmd.Context(), dbConn, x)
+				if err != nil {
+					fmt.Println("could not get latest time", err)
+					os.Exit(1)
+				}
+
+				dbConn.Close()
+
+				since = *latestTime
 			}
 
-			dbConn.Close()
-
-			since = *latestTime
+			var err error
+			if onlyLatest {
+				err = populate.PopulateSinceTime(x, since)
+			} else {
+				err = populate.PopulateAll(x)
+			}
+			if err != nil {
+				errs = append(errs, errors.Wrap(err, x.GetName()+" error:"))
+			}
 		}
 
-		if browserName != "" {
-			for _, x := range extractors {
-				if x.GetName() == browserName {
-					if onlyLatest {
-						err = populate.PopulateSinceTime(x, since)
-					} else {
-						err = populate.PopulateAll(x)
-					}
-					if err != nil {
-						log.Printf("Error with extractor: %+v\n", x)
-					}
-				}
+		if len(errs) > 0 {
+			for _, e := range errs {
+				log.Println(e)
 			}
-		} else {
-			errs := []error{}
-
-			// Without a browser name, populate everything
-			for _, x := range extractors {
-				var e error
-				if onlyLatest {
-					e = populate.PopulateSinceTime(x, since)
-				} else {
-					e = populate.PopulateAll(x)
-				}
-				if e != nil {
-					errs = append(errs, e)
-				}
-			}
-
-			if len(errs) > 0 {
-				for _, e := range errs {
-					log.Println(e)
-				}
-				err = fmt.Errorf("one or more browsers failed")
-			}
+			err = fmt.Errorf("one or more browsers failed")
 		}
 
 		if err != nil {

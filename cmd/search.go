@@ -13,7 +13,6 @@ import (
 var searchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Find URLs you've visited",
-	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 		searchProvider := search.NewSearchProvider(cmd.Context(), config.Config)
@@ -22,9 +21,11 @@ var searchCmd = &cobra.Command{
 			fmt.Println("search error", err)
 			os.Exit(1)
 		}
+
 		for _, x := range util.ReverseSlice(result.Urls) {
 			fmt.Printf("%v %s %sv\n", x.LastVisit.Format("2006-01-02"), *x.Title, x.Url)
 		}
+
 		fmt.Printf("Found %d results for \"%s\"\n", result.Count, query)
 	},
 }

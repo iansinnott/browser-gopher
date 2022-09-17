@@ -12,6 +12,12 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
 
+// @note Initially visits had a unique index on `extractor_name, url_md5,
+// visit_time`, however, this lead to duplicate visits. The visits were
+// duplicated because some browsers will immport the history of other browsers,
+// or in cases like the history trends chrome extension duplication is
+// explicitly part of the goal. Thus, in order to minimize duplication visits
+// are considered unique by url and unix timestamp.
 const initSql = `
 CREATE TABLE IF NOT EXISTS "urls" (
   "url_md5" VARCHAR(32) PRIMARY KEY NOT NULL,
@@ -28,7 +34,7 @@ CREATE TABLE IF NOT EXISTS "visits" (
   "extractor_name" TEXT
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS visits_unique ON visits(extractor_name, url_md5, visit_time);
+CREATE UNIQUE INDEX IF NOT EXISTS visits_unique ON visits(url_md5, visit_time);
 CREATE INDEX IF NOT EXISTS visits_url_md5 ON visits(url_md5);
 `
 
@@ -55,19 +61,18 @@ func InitDB(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	return conn, err
 }
 
-func GetLatestTime(ctx context.Context, db *sql.DB) (*time.Time, error) {
+func GetLatestTime(ctx context.Context, db *sql.DB, extractor types.Extractor) (*time.Time, error) {
 	qry := `
 SELECT
-  last_visit
+  visit_time
 FROM
-  urls
-WHERE last_visit NOT NULL
-  AND last_visit > 0
+  visits
+WHERE extractor_name = ?
 ORDER BY
-  last_visit DESC
+  visit_time DESC
 LIMIT 1;
 	`
-	row := db.QueryRowContext(ctx, qry)
+	row := db.QueryRowContext(ctx, qry, extractor.GetName())
 	if err := row.Err(); err != nil {
 		return nil, err
 	}
@@ -87,7 +92,7 @@ LIMIT 1;
 func InsertURL(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	const qry = `
 		INSERT OR REPLACE INTO urls(url_md5, url, title, description, last_visit)
-			VALUES(?, ?, ?, ?);
+			VALUES(?, ?, ?, ?, ?);
 	`
 	var lastVisit int64
 	if row.LastVisit != nil {

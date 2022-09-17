@@ -6,54 +6,59 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
 
-const chromiumUrls = `
+// @note We cannot use lastVisitDate in the where clause due to MAX(...) aggregation.
+const historyTrendsUrls = `
 SELECT
-	url,
-	title,
-	datetime(last_visit_time / 1e6 + strftime('%s', '1601-01-01'), 'unixepoch') as lastVisitDate
+  u.url,
+  u.title,
+  datetime(max(v.visit_time) / 1e3, 'unixepoch') AS lastVisitDate
 FROM
-	urls
-WHERE lastVisitDate > ?
+  visits v
+  INNER JOIN urls u ON u.urlid = v.urlid
+WHERE datetime(v.visit_time / 1e3, 'unixepoch') > ?
+GROUP BY
+  v.urlid
 ORDER BY
   lastVisitDate DESC;
 `
 
-const chromiumVisits = `
+const historyTrendsVisits = `
 SELECT
-  datetime(visit_time / 1e6 + strftime('%s', '1601-01-01'), 'unixepoch') AS visitDate,
+  datetime(v.visit_time / 1e3, 'unixepoch') AS visitDate,
   u.url
 FROM
   visits v
-  INNER JOIN urls u ON v.url = u.id
+  INNER JOIN urls u ON u.urlid = v.urlid
 WHERE visitDate > ?
 ORDER BY 
 	visitDate DESC;
 `
 
-type ChromiumExtractor struct {
+type HistoryTrendsExtractor struct {
 	Name          string
 	HistoryDBPath string
 }
 
-func (a *ChromiumExtractor) GetName() string {
+func (a *HistoryTrendsExtractor) GetName() string {
 	return a.Name
 }
 
-func (a *ChromiumExtractor) GetDBPath() string {
+func (a *HistoryTrendsExtractor) GetDBPath() string {
 	return a.HistoryDBPath
 }
 
-func (a *ChromiumExtractor) SetDBPath(s string) {
+func (a *HistoryTrendsExtractor) SetDBPath(s string) {
 	a.HistoryDBPath = s
 }
 
-func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
+func (a *HistoryTrendsExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error) {
 	row := conn.QueryRowContext(ctx, "SELECT count(*) FROM urls;")
 	err := row.Err()
 	if err != nil {
@@ -62,8 +67,8 @@ func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) 
 	return true, nil
 }
 
-func (a *ChromiumExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
-	rows, err := conn.QueryContext(ctx, chromiumUrls, since.Format(util.SQLiteDateTime))
+func (a *HistoryTrendsExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
+	rows, err := conn.QueryContext(ctx, historyTrendsUrls, since.Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -97,8 +102,8 @@ func (a *ChromiumExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, s
 	return urls, nil
 }
 
-func (a *ChromiumExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
-	rows, err := conn.QueryContext(ctx, chromiumVisits, since.Format(util.SQLiteDateTime))
+func (a *HistoryTrendsExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
+	rows, err := conn.QueryContext(ctx, historyTrendsVisits, since.Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -134,11 +139,12 @@ func (a *ChromiumExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB,
 	return visits, nil
 }
 
-func FindChromiumDBs(root string) ([]string, error) {
+func FindHistoryTrendsDBs(root string) ([]string, error) {
 	results := []string{}
 
+	fmt.Println("Trying root", root)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() && d.Name() == "History" {
+		if !d.IsDir() && d.Name() == "1" && strings.Contains(path, "chrome-extension_pnmchffiealhkdloeffcdnbgdnedheme_0") {
 			results = append(results, path)
 		}
 		return nil
