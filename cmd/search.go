@@ -14,22 +14,43 @@ var searchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Find URLs you've visited",
 	Run: func(cmd *cobra.Command, args []string) {
-		query := args[0]
-		searchProvider := search.NewSearchProvider(cmd.Context(), config.Config)
-		result, err := searchProvider.SearchUrls(query)
+		noInteractive, err := cmd.Flags().GetBool("no-interactive")
 		if err != nil {
-			fmt.Println("search error", err)
+			fmt.Println("could not parse --no-interactive:", err)
 			os.Exit(1)
 		}
 
-		for _, x := range util.ReverseSlice(result.Urls) {
-			fmt.Printf("%v %s %sv\n", x.LastVisit.Format("2006-01-02"), *x.Title, x.Url)
+		searchProvider := search.NewSearchProvider(cmd.Context(), config.Config)
+
+		if noInteractive {
+			if len(args) < 1 {
+				fmt.Println("No search query provided.")
+				os.Exit(1)
+				return
+			}
+
+			query := args[0]
+			result, err := searchProvider.SearchUrls(query)
+			if err != nil {
+				fmt.Println("search error", err)
+				os.Exit(1)
+				return
+			}
+
+			for _, x := range util.ReverseSlice(result.Urls) {
+				fmt.Printf("%v %s %sv\n", x.LastVisit.Format("2006-01-02"), *x.Title, x.Url)
+			}
+
+			fmt.Printf("Found %d results for \"%s\"\n", result.Count, query)
+			os.Exit(0)
+			return
 		}
 
-		fmt.Printf("Found %d results for \"%s\"\n", result.Count, query)
+		fmt.Println("set up tui")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(searchCmd)
+	searchCmd.Flags().Bool("no-interactive", false, "disable interactive terminal interface. useful for scripting")
 }
