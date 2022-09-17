@@ -22,18 +22,26 @@ SELECT
 	url,
 	title,
 	description,
-  datetime(last_visit_date / 1e6, 'unixepoch') as last_visit_date
+  datetime(last_visit_date / 1e6, 'unixepoch') as lastVisitDate
 FROM
-	moz_places;
+	moz_places
+WHERE lastVisitDate > ?
+ORDER BY 
+	lastVisitDate DESC;
+;
 `
 
 const firefoxVisits = `
 SELECT
-  datetime(v.visit_date / 1e6, 'unixepoch') AS visit_date,
+  datetime(v.visit_date / 1e6, 'unixepoch') AS visitDate,
   u.url
 FROM
   moz_historyvisits v
-  INNER JOIN moz_places u ON v.place_id = u.id;
+  INNER JOIN moz_places u ON v.place_id = u.id
+WHERE visitDate > ?
+ORDER BY 
+	visitDate DESC;
+;
 `
 
 func (a *FirefoxExtractor) GetName() string {
@@ -57,7 +65,7 @@ func (a *FirefoxExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (
 }
 
 func (a *FirefoxExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
-	rows, err := conn.QueryContext(ctx, firefoxUrls)
+	rows, err := conn.QueryContext(ctx, firefoxUrls, since.Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -95,7 +103,7 @@ func (a *FirefoxExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, si
 }
 
 func (a *FirefoxExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
-	rows, err := conn.QueryContext(ctx, firefoxVisits)
+	rows, err := conn.QueryContext(ctx, firefoxVisits, since.Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
