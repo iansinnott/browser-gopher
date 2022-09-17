@@ -10,6 +10,7 @@ import (
 )
 
 const SQLiteDateTime = "2006-01-02 15:04:05"
+const FormatDateOnly = "2006-01-02"
 
 // Given a datetime string in the form "2022-01-14 06:41:48" parse it to time.Time
 //

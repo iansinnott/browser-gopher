@@ -3,12 +3,106 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/search"
+	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/spf13/cobra"
 )
+
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
+var titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fafafa"))
+var urlStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#87BCF7"))
+
+func renderTitle(title string) string {
+	if title == untitled {
+		return title
+	}
+
+	return titleStyle.Render(title)
+}
+
+const untitled = "<UNTITLED>"
+
+type item struct {
+	title, desc string
+	date        *time.Time
+}
+
+func (i item) Title() string {
+	if i.date == nil {
+		return renderTitle(i.title)
+	}
+
+	return i.date.Format(util.FormatDateOnly) + " " + renderTitle(i.title)
+}
+func (i item) Description() string {
+	return urlStyle.Render(i.desc)
+}
+func (i item) FilterValue() string { return i.title + i.desc }
+
+type model struct {
+	input          textinput.Model
+	list           list.Model
+	searchProvider search.SearchProvider
+}
+
+func (m model) Init() tea.Cmd {
+	return nil
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl-c", "esc":
+			return m, tea.Quit
+		case "ctrl+n", "ctrl+j", "down":
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+		case "ctrl+p", "ctrl+k", "up":
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+		default:
+			var inputCmd tea.Cmd
+			var result *search.URLQueryResult
+			var err error
+			m.input, inputCmd = m.input.Update(msg)
+			query := m.input.Value()
+			if query == "" {
+				result, err = m.searchProvider.RecentUrls(100)
+			} else {
+				result, err = m.searchProvider.SearchUrls(query)
+			}
+			if err != nil {
+				fmt.Println("search error", err)
+				os.Exit(1)
+			}
+			items := urlsToItems(result.Urls)
+			listCmd := m.list.SetItems(items)
+			return m, tea.Batch(inputCmd, listCmd)
+		}
+
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		m.list.SetSize(msg.Width-h*2, msg.Height-v*2)
+	}
+
+	return m, cmd
+}
+
+func (m model) View() string {
+	// return m.input.View() + "\n" + m.list.View()
+	return docStyle.Render(m.input.View()) + "\n" + m.list.View()
+}
 
 var searchCmd = &cobra.Command{
 	Use:   "search",
@@ -46,8 +140,53 @@ var searchCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("set up tui")
+		result, err := searchProvider.RecentUrls(100)
+		if err != nil {
+			fmt.Println("search error", err)
+			os.Exit(1)
+		}
+
+		items := urlsToItems(result.Urls)
+
+		// Input el
+		input := textinput.New()
+		input.Placeholder = "Search..."
+		input.Focus()
+
+		// Search results list el
+		listDelegate := list.NewDefaultDelegate()
+		listDelegate.SetHeight(2)
+		listDelegate.SetSpacing(1)
+		list := list.New(items, listDelegate, 0, 0)
+		list.SetFilteringEnabled(false)
+		list.SetShowTitle(false)
+		list.SetShowStatusBar(false)
+
+		m := model{
+			list:           list,
+			input:          input,
+			searchProvider: *searchProvider,
+		}
+
+		p := tea.NewProgram(m, tea.WithAltScreen())
+
+		if err := p.Start(); err != nil {
+			fmt.Println("Error running program:", err)
+			os.Exit(1)
+		}
 	},
+}
+
+func urlsToItems(urls []types.UrlRow) []list.Item {
+	items := []list.Item{}
+	for _, x := range urls {
+		var title string = untitled
+		if x.Title != nil {
+			title = *x.Title
+		}
+		items = append(items, item{title: title, desc: x.Url, date: x.LastVisit})
+	}
+	return items
 }
 
 func init() {

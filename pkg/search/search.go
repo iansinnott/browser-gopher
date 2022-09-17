@@ -23,12 +23,12 @@ func NewSearchProvider(ctx context.Context, conf *config.AppConfig) *SearchProvi
 	return &SearchProvider{ctx: ctx, conf: conf}
 }
 
-type URLSearchResult struct {
+type URLQueryResult struct {
 	Urls  []types.UrlRow
 	Count int
 }
 
-func (p *SearchProvider) SearchUrls(query string) (*URLSearchResult, error) {
+func (p *SearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
@@ -94,5 +94,64 @@ LIMIT 100;
 		xs = append(xs, x)
 	}
 
-	return &URLSearchResult{Urls: xs, Count: count}, nil
+	return &URLQueryResult{Urls: xs, Count: count}, nil
+}
+
+func (p *SearchProvider) RecentUrls(limit int) (*URLQueryResult, error) {
+	conn, err := persistence.OpenConnection(p.ctx, p.conf)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	var count int
+	row := conn.QueryRowContext(p.ctx, `
+SELECT
+	COUNT(*)
+FROM
+  urls;
+	`)
+	if row.Err() != nil {
+		return nil, errors.Wrap(row.Err(), "row count error")
+	}
+	err = row.Scan(&count)
+	if err != nil {
+		return nil, errors.Wrap(err, "row count error")
+	}
+
+	rows, err := conn.QueryContext(p.ctx, `
+SELECT
+  url,
+  title,
+  description,
+  last_visit
+FROM
+  urls
+ORDER BY
+  last_visit DESC
+LIMIT ?;
+	`, limit)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "query error")
+	}
+	if rows.Err() != nil {
+		return nil, errors.Wrap(rows.Err(), "query error")
+	}
+
+	xs := []types.UrlRow{}
+
+	for rows.Next() {
+		var x types.UrlRow
+		var ts int64
+		err := rows.Scan(&x.Url, &x.Title, &x.Description, &ts)
+		if err != nil {
+			return nil, errors.Wrap(err, "row error")
+		}
+		t := time.Unix(ts, 0)
+		x.LastVisit = &t
+		xs = append(xs, x)
+	}
+
+	return &URLQueryResult{Urls: xs, Count: count}, nil
 }
