@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -14,6 +15,7 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/spf13/cobra"
+	image "github.com/trashhalo/imgcat/component"
 )
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
@@ -33,14 +35,25 @@ const untitled = "<UNTITLED>"
 type item struct {
 	title, desc string
 	date        *time.Time
+	img         *image.Model
 }
 
 func (i item) Title() string {
-	if i.date == nil {
-		return renderTitle(i.title)
+	var sb strings.Builder
+
+	if i.img != nil {
+		sb.WriteString(i.img.View())
+		sb.WriteString(" ")
 	}
 
-	return i.date.Format(util.FormatDateOnly) + " " + renderTitle(i.title)
+	if i.date != nil {
+		sb.WriteString(i.date.Format(util.FormatDateOnly))
+		sb.WriteString(" ")
+	}
+
+	sb.WriteString(renderTitle(i.title))
+
+	return sb.String()
 }
 func (i item) Description() string {
 	return urlStyle.Render(i.desc)
@@ -184,7 +197,13 @@ func urlsToItems(urls []types.UrlRow) []list.Item {
 		if x.Title != nil {
 			title = *x.Title
 		}
-		items = append(items, item{title: title, desc: x.Url, date: x.LastVisit})
+		img := image.New(32, 32, "https://avatars.githubusercontent.com/u/3154865?s=40&v=4")
+		items = append(items, item{
+			title: title,
+			desc:  x.Url,
+			date:  x.LastVisit,
+			img:   &img,
+		})
 	}
 	return items
 }

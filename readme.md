@@ -47,10 +47,14 @@ browser-gopher browserparrot --db-path ~/.config/uncloud/persistory.db
 
 ## Todo / Wishlist
 
-- search (yeah, need to add this)
-  - actions: open, copy, etc
-- a TUI for searching and filtering for a more GUI-like experience
-- full text indexing
-  - ideally with more sophisticated extraction mechanisms than previous
-- import history from History Trends Unlimited
-  - It's already in sqlite so should be quick
+- [x] search (yeah, need to add this)
+  - [ ] actions: open, copy, etc
+- [ ] favicons
+  - not sure how (if possible) to render favicons to a terminal
+  - worth a look: https://github.com/trashhalo/imgcat/blob/master/component/load.go#L121
+    - https://github.com/trashhalo/imgcat/blob/master/component/component.go#L22
+- [ ] a TUI for searching and filtering for a more GUI-like experience
+- [ ] full text indexing
+  - [ ] ideally with more sophisticated extraction mechanisms than previous
+- [ ] import history from History Trends Unlimited
+  - [ ] It's already in sqlite so should be quick
