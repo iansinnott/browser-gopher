@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -60,6 +62,17 @@ func (i item) Description() string {
 }
 func (i item) FilterValue() string { return i.title + i.desc }
 
+// @todo Support other systems that don't have `open`
+// @todo should prob store a list of the `item` structs that have the URL rather than doing this string manipulation
+func OpenItem(item list.Item) error {
+	filterVal := item.FilterValue()
+	re := regexp.MustCompile(`https?://`)
+	loc := re.FindStringIndex(filterVal)
+	url := filterVal[loc[0]:]
+	fmt.Println("open", url)
+	return exec.Command("open", url).Run()
+}
+
 type model struct {
 	input          textinput.Model
 	list           list.Model
@@ -84,6 +97,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+p", "ctrl+k", "up":
 			m.list, cmd = m.list.Update(msg)
 			return m, cmd
+		case "enter":
+			item := m.list.SelectedItem()
+			OpenItem(item) // @todo wrap this in a tea.Cmd to preserve purity
+			return m, tea.Quit
 		default:
 			var inputCmd tea.Cmd
 			var result *search.URLQueryResult
