@@ -13,6 +13,21 @@ type UrlRow struct {
 	LastVisit   *time.Time // Nullable
 }
 
+// Meta information about the URL
+type UrlMetaRow struct {
+	Url       string
+	IndexedAt *time.Time // Nullable
+}
+
+// The URL as represented in the db.
+type UrlDbEntity struct {
+	UrlMd5      string
+	Url         string
+	Title       *string    // Nullable
+	Description *string    // Nullable
+	LastVisit   *time.Time // Nullable
+}
+
 type VisitRow struct {
 	Url      string
 	Datetime time.Time

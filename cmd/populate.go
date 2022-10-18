@@ -1,11 +1,9 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -38,11 +36,24 @@ var populateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		shouldBuildIndex, err := cmd.Flags().GetBool("build-index")
+		if err != nil {
+			fmt.Println("could not parse --build-index:", err)
+			os.Exit(1)
+		}
+
 		extractors, err := ex.BuildExtractorList()
 		if err != nil {
 			log.Println("error getting extractors", err)
 			os.Exit(1)
 		}
+
+		dbConn, err := persistence.InitDb(cmd.Context(), config.Config)
+		if err != nil {
+			fmt.Println("could not open our db", err)
+			os.Exit(1)
+		}
+		defer dbConn.Close()
 
 		errs := []error{}
 
@@ -54,19 +65,11 @@ var populateCmd = &cobra.Command{
 
 			since := time.Unix(0, 0) // 1970-01-01
 			if onlyLatest {
-				dbConn, err := sql.Open("sqlite", config.Config.DBPath)
-				if err != nil {
-					fmt.Println("could not open our db", err)
-					os.Exit(1)
-				}
-
 				latestTime, err := persistence.GetLatestTime(cmd.Context(), dbConn, x)
 				if err != nil {
 					fmt.Println("could not get latest time", err)
 					os.Exit(1)
 				}
-
-				dbConn.Close()
 
 				since = *latestTime
 			}
@@ -93,6 +96,17 @@ var populateCmd = &cobra.Command{
 			fmt.Println("Encountered an error", err)
 			os.Exit(1)
 		}
+
+		if shouldBuildIndex {
+			fmt.Println("Indexing results...")
+			t := time.Now()
+			err = populate.BuildIndex(cmd.Context(), dbConn)
+			if err != nil {
+				fmt.Println("encountered an error building the search index", err)
+				os.Exit(1)
+			}
+			fmt.Println("Indexed in", time.Since(t))
+		}
 	},
 }
 
@@ -100,4 +114,5 @@ func init() {
 	rootCmd.AddCommand(populateCmd)
 	populateCmd.Flags().StringP("browser", "b", "", "Specify the browser name you'd like to extract")
 	populateCmd.Flags().Bool("latest", false, "Only populate data that's newer than last import (Recommended, likely will be default in future version)")
+	populateCmd.Flags().Bool("build-index", true, "Whether or not to build the search index. Required for search to work.")
 }

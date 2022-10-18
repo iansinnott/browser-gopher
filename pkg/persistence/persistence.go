@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS "urls" (
   "last_visit" INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS "urls_meta" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "url_md5" VARCHAR(32) NOT NULL REFERENCES urls(url_md5),
+  "indexed_at" INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS "visits" (
   "id" INTEGER PRIMARY KEY AUTOINCREMENT,
   "url_md5" VARCHAR(32) NOT NULL REFERENCES urls(url_md5),
@@ -38,7 +44,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS visits_unique ON visits(url_md5, visit_time);
 CREATE INDEX IF NOT EXISTS visits_url_md5 ON visits(url_md5);
 `
 
-// Open a connection to the database. Calling code should close the connection when done
+// Open a connection to the database. Calling code should close the connection when done.
+// @note It is assumed that the database is already initialized. Thus this may be less useful than `InitDB`
 func OpenConnection(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	dbPath := c.DBPath
 	conn, err := sql.Open("sqlite", dbPath)
@@ -50,7 +57,7 @@ func OpenConnection(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 }
 
 // Initialize the database. Create tables and indexes
-func InitDB(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
+func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	conn, err := OpenConnection(ctx, c)
 	if err != nil {
 		return nil, err
@@ -89,7 +96,7 @@ LIMIT 1;
 
 }
 
-func InsertURL(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
+func InsertUrl(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	const qry = `
 		INSERT OR REPLACE INTO urls(url_md5, url, title, description, last_visit)
 			VALUES(?, ?, ?, ?, ?);
@@ -101,6 +108,17 @@ func InsertURL(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	md5 := util.HashMd5String(row.Url)
 
 	_, err := db.ExecContext(ctx, qry, md5, row.Url, row.Title, row.Description, lastVisit)
+	return err
+}
+
+func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error {
+	const qry = `
+		INSERT OR REPLACE INTO urls_meta(url_md5, indexed_at)
+			VALUES(?, ?);
+	`
+	md5 := util.HashMd5String(row.Url)
+
+	_, err := db.ExecContext(ctx, qry, md5, row.IndexedAt)
 	return err
 }
 

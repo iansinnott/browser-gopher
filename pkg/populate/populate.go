@@ -88,14 +88,14 @@ func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
 	log.Println("["+extractor.GetName()+"]\turls", len(urls))
 	log.Println("["+extractor.GetName()+"]\tvisits", len(visits))
 
-	db, err := persistence.InitDB(ctx, config.Config)
+	db, err := persistence.InitDb(ctx, config.Config)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
 	for _, x := range urls {
-		err := persistence.InsertURL(ctx, db, &x)
+		err := persistence.InsertUrl(ctx, db, &x)
 		if err != nil {
 			log.Println("could not insert row", err)
 		}
