@@ -1,10 +1,38 @@
-# Readme
+# Browser Gopher
 
 Search, aggregate, backup your browsing history from the command line.
 
+![Screenshot showing browser-gopher searching for neovim](https://share.cleanshot.com/6l3BXT/download)
+
+## Features
+
+- Search your entire browsing history across all browsers
+- Data stored locally in SQLite, query it however you like
+
+## Installation
+
+For now, install from source:
+
+```sh
+# Install go if you don't have it: https://go.dev/doc/install
+# If on a mac, install through brew:
+#brew install go
+
+# Build browser-gopher
+git clone https://github.com/iansinnott/browser-gopher
+cd browser-gopher
+go build .
+
+# Populate the database
+./browser-gopher populate --latest
+
+# Search
+./browser-gopher search
+```
+
 ## Project status
 
-Just started. Currently it extracts and stores all your browsing history in SQLite. It does not yet support search. That's next!
+Just started. Currently it extracts and stores all your browsing history in SQLite. You can search over all your browsing history, but full-text is not yet extracted.
 
 ## Supported browsers
 
@@ -48,13 +76,13 @@ browser-gopher browserparrot --db-path ~/.config/uncloud/persistory.db
 ## Todo / Wishlist
 
 - [x] search (yeah, need to add this)
-  - [ ] actions: open, copy, etc
-- [ ] favicons
-  - not sure how (if possible) to render favicons to a terminal
-  - worth a look: https://github.com/trashhalo/imgcat/blob/master/component/load.go#L121
-    - https://github.com/trashhalo/imgcat/blob/master/component/component.go#L22
-- [ ] a TUI for searching and filtering for a more GUI-like experience
+  - [x] action: open
+  - [ ] action: copy
+- [x] a TUI for searching and filtering for a more GUI-like experience
 - [ ] full text indexing
-  - [ ] ideally with more sophisticated extraction mechanisms than previous
+  - ideally with more sophisticated extraction mechanisms than previous
 - [ ] import history from History Trends Unlimited
-  - [ ] It's already in sqlite so should be quick
+  - It's already in sqlite so should be quick
+- ~~favicons~~
+  - Update: Tried https://github.com/trashhalo/imgcat/blob/master/component/load.go#L121. Cannot effectively render at such small sizes in the terminal.
+  - If anyone has suggestions for how to render 32x32 pngs in the terminal please let me know.
