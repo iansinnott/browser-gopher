@@ -145,8 +145,8 @@ func CountUrlsWhere(ctx context.Context, db *sql.DB, where string, args ...inter
 		SELECT 
 			COUNT(*)
 		FROM
-			urls u
-			LEFT OUTER JOIN urls_meta um ON u.url_md5 = um.url_md5
+			urls
+			LEFT OUTER JOIN urls_meta ON urls.url_md5 = urls_meta.url_md5
 		WHERE %s;
 	`
 	qry = fmt.Sprintf(qry, where)

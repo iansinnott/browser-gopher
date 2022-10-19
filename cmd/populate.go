@@ -100,12 +100,12 @@ var populateCmd = &cobra.Command{
 		if shouldBuildIndex {
 			fmt.Println("Indexing results...")
 			t := time.Now()
-			err = populate.BuildIndex(cmd.Context(), dbConn)
+			n, err := populate.BuildIndex(cmd.Context(), dbConn)
 			if err != nil {
 				fmt.Println("encountered an error building the search index", err)
 				os.Exit(1)
 			}
-			fmt.Println("Indexed in", time.Since(t))
+			fmt.Printf("Indexed %d records in %v\n", n, time.Since(t))
 		}
 	},
 }
