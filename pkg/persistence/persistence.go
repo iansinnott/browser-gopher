@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -29,7 +30,7 @@ CREATE TABLE IF NOT EXISTS "urls" (
 
 CREATE TABLE IF NOT EXISTS "urls_meta" (
   "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-  "url_md5" VARCHAR(32) NOT NULL REFERENCES urls(url_md5),
+  "url_md5" VARCHAR(32) UNIQUE NOT NULL REFERENCES urls(url_md5),
   "indexed_at" INTEGER
 );
 
@@ -117,8 +118,13 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error
 			VALUES(?, ?);
 	`
 	md5 := util.HashMd5String(row.Url)
+	var indexed_at int64
 
-	_, err := db.ExecContext(ctx, qry, md5, row.IndexedAt)
+	if row.IndexedAt != nil {
+		indexed_at = row.IndexedAt.Unix()
+	}
+
+	_, err := db.ExecContext(ctx, qry, md5, indexed_at)
 	return err
 }
 
@@ -131,4 +137,29 @@ func InsertVisit(ctx context.Context, db *sql.DB, row *types.VisitRow) error {
 
 	_, err := db.ExecContext(ctx, qry, md5, row.Datetime.Unix(), row.ExtractorName)
 	return err
+}
+
+// Count the number of urls that match the given where clause. URL meta is available in the where clause as well.
+func CountUrlsWhere(ctx context.Context, db *sql.DB, where string, args ...interface{}) (int, error) {
+	var qry = `
+		SELECT 
+			COUNT(*)
+		FROM
+			urls u
+			LEFT OUTER JOIN urls_meta um ON u.url_md5 = um.url_md5
+		WHERE %s;
+	`
+	qry = fmt.Sprintf(qry, where)
+	row := db.QueryRowContext(ctx, qry, args...)
+	if err := row.Err(); err != nil {
+		return 0, err
+	}
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
