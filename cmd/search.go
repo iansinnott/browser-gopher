@@ -37,15 +37,25 @@ func highlightLocation(loc *bs.Location, text string) string {
 }
 
 func highlightAll(locations bs.TermLocationMap, text string) string {
-	s := text
+	var lastEnd uint64 = 0
+	xs := []string{}
 
 	for _, locs := range locations {
 		for _, loc := range locs {
-			s = highlightLocation(loc, s)
+			if lastEnd > loc.Start {
+				// locations out of order? if you slice something like [12:3] it will fail. first must be less than second
+				continue
+			}
+
+			xs = append(xs, text[lastEnd:loc.Start])
+			xs = append(xs, HighlightStyle.Render(text[loc.Start:loc.End]))
+			lastEnd = loc.End
 		}
 	}
 
-	return s
+	xs = append(xs, text[lastEnd:])
+
+	return strings.Join(xs, "")
 }
 
 const UNTITLED = "<UNTITLED>"
