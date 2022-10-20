@@ -124,7 +124,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				result, err = m.searchProvider.SearchUrls(query)
 			}
 			// @note we ignored parse errors since they are quite expected when a user is typing
-			if err != nil && !strings.Contains(err.Error(), "parse error") {
+			if err != nil && !acceptibleSearchError(err) {
 				fmt.Println("search error", err)
 				os.Exit(1)
 			}
@@ -158,7 +158,11 @@ var searchCmd = &cobra.Command{
 
 		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
 		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
-		initialQuery := args[0]
+		initialQuery := ""
+
+		if len(args) > 0 {
+			initialQuery = args[0]
+		}
 
 		if noInteractive {
 			if len(args) < 1 {
@@ -191,7 +195,7 @@ var searchCmd = &cobra.Command{
 			result, err = searchProvider.SearchUrls(initialQuery)
 		}
 
-		if err != nil && !strings.Contains(err.Error(), "parse error") {
+		if err != nil && !acceptibleSearchError(err) {
 			fmt.Println("search error", err)
 			os.Exit(1)
 		}
@@ -271,6 +275,10 @@ func resultToItems(result *search.URLQueryResult, query string) []list.Item {
 		})
 	}
 	return items
+}
+
+func acceptibleSearchError(err error) bool {
+	return strings.Contains(err.Error(), "parse error") || strings.Contains(err.Error(), "syntax error")
 }
 
 func init() {
