@@ -85,6 +85,7 @@ type model struct {
 	input          textinput.Model
 	list           list.Model
 	searchProvider search.SearchProvider
+	dataProvider   search.DataProvider
 }
 
 func (m model) Init() tea.Cmd {
@@ -116,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input, inputCmd = m.input.Update(msg)
 			query := m.input.Value()
 			if query == "" {
-				result, err = m.searchProvider.RecentUrls(100)
+				result, err = m.dataProvider.RecentUrls(100)
 			} else {
 				result, err = m.searchProvider.SearchUrls(query)
 			}
@@ -152,7 +153,10 @@ var searchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		searchProvider := search.NewSearchProvider(cmd.Context(), config.Config)
+		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
+
+		// @todo Use bleve
+		searchProvider := dataProvider
 
 		if noInteractive {
 			if len(args) < 1 {
@@ -178,7 +182,7 @@ var searchCmd = &cobra.Command{
 			return
 		}
 
-		result, err := searchProvider.RecentUrls(100)
+		result, err := dataProvider.RecentUrls(100)
 		if err != nil {
 			fmt.Println("search error", err)
 			os.Exit(1)
@@ -203,7 +207,8 @@ var searchCmd = &cobra.Command{
 		m := model{
 			list:           list,
 			input:          input,
-			searchProvider: *searchProvider,
+			searchProvider: searchProvider,
+			dataProvider:   dataProvider,
 		}
 
 		p := tea.NewProgram(m, tea.WithAltScreen())
