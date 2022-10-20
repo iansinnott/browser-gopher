@@ -154,9 +154,7 @@ var searchCmd = &cobra.Command{
 		}
 
 		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
-
-		// @todo Use bleve
-		searchProvider := dataProvider
+		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
 
 		if noInteractive {
 			if len(args) < 1 {
@@ -220,8 +218,14 @@ var searchCmd = &cobra.Command{
 	},
 }
 
-func urlsToItems(urls []types.UrlRow, query string) []list.Item {
+func urlsToItems(urls []types.UrlDbEntity, query string) []list.Item {
 	items := []list.Item{}
+
+	if len(urls) == 0 {
+		items = append(items, item{title: "No results found"})
+		return items
+	}
+
 	for _, x := range urls {
 		title := UNTITLED
 		if x.Title != nil {

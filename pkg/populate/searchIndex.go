@@ -38,7 +38,15 @@ type SearchableEntity struct {
 	LastVisit   *time.Time `json:"last_visit"`
 }
 
-func GetIndex() (bleve.Index, error) {
+// reference the index so that it does't get opened multiple times (causes
+// breakage). What's the best way to do this?
+var index bleve.Index
+
+func GetIndex() (*bleve.Index, error) {
+	if index != nil {
+		return &index, nil
+	}
+
 	var (
 		idx bleve.Index
 		err error
@@ -65,7 +73,9 @@ func GetIndex() (bleve.Index, error) {
 		}
 	}
 
-	return idx, err
+	index = idx
+
+	return &idx, err
 }
 
 // how many urls to index at a time
@@ -84,7 +94,7 @@ func BuildIndex(ctx context.Context, db *sql.DB) (int, error) {
 	}
 
 	for indexedCount < toIndexCount {
-		n, err := batchIndex(ctx, db, idx)
+		n, err := batchIndex(ctx, db, *idx)
 
 		// break early if there was an error
 		if err != nil {

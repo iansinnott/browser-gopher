@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -11,6 +12,7 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
+	"github.com/samber/lo"
 )
 
 // @note Initially visits had a unique index on `extractor_name, url_md5,
@@ -162,4 +164,37 @@ func CountUrlsWhere(ctx context.Context, db *sql.DB, where string, args ...inter
 	}
 
 	return count, nil
+}
+
+func UrlsById(ctx context.Context, db *sql.DB, ids ...string) ([]types.UrlDbEntity, error) {
+	qry := fmt.Sprintf("SELECT * FROM urls WHERE url_md5 IN (%s)", strings.Join(
+		lo.Map(ids, func(id string, _ int) string { return "?" }),
+		",",
+	))
+
+	// C'mon Go, don't expose your implementation details (this conversion is
+	// necessary becuase of underlying mem representation):
+	// https://go.dev/doc/faq#convert_slice_of_interface
+	var args []any
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	rows, err := db.QueryContext(ctx, qry, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var urls []types.UrlDbEntity
+	for rows.Next() {
+		var url types.UrlDbEntity
+		err := rows.Scan(&url.UrlMd5, &url.Url, &url.Title, &url.Description, &url.LastVisit)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, url)
+	}
+
+	return urls, nil
 }

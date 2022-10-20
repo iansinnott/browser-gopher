@@ -28,7 +28,7 @@ func (p SqlSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
 
 	query = "%" + query + "%"
 
-	var count int
+	var count uint
 	row := conn.QueryRowContext(p.ctx, `
 SELECT
 	COUNT(*)
@@ -49,6 +49,7 @@ WHERE
 
 	rows, err := conn.QueryContext(p.ctx, `
 SELECT
+	url_md5,
   url,
   title,
   description,
@@ -71,12 +72,12 @@ LIMIT 100;
 		return nil, errors.Wrap(rows.Err(), "query error")
 	}
 
-	xs := []types.UrlRow{}
+	xs := []types.UrlDbEntity{}
 
 	for rows.Next() {
-		var x types.UrlRow
+		var x types.UrlDbEntity
 		var ts int64
-		err := rows.Scan(&x.Url, &x.Title, &x.Description, &ts)
+		err := rows.Scan(&x.UrlMd5, &x.Url, &x.Title, &x.Description, &ts)
 		if err != nil {
 			return nil, errors.Wrap(err, "row error")
 		}
@@ -88,14 +89,14 @@ LIMIT 100;
 	return &URLQueryResult{Urls: xs, Count: count}, nil
 }
 
-func (p SqlSearchProvider) RecentUrls(limit int) (*URLQueryResult, error) {
+func (p SqlSearchProvider) RecentUrls(limit uint) (*URLQueryResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
 
-	var count int
+	var count uint
 	row := conn.QueryRowContext(p.ctx, `
 SELECT
 	COUNT(*)
@@ -112,6 +113,7 @@ FROM
 
 	rows, err := conn.QueryContext(p.ctx, `
 SELECT
+	url_md5,
   url,
   title,
   description,
@@ -130,12 +132,12 @@ LIMIT ?;
 		return nil, errors.Wrap(rows.Err(), "query error")
 	}
 
-	xs := []types.UrlRow{}
+	xs := []types.UrlDbEntity{}
 
 	for rows.Next() {
-		var x types.UrlRow
+		var x types.UrlDbEntity
 		var ts int64
-		err := rows.Scan(&x.Url, &x.Title, &x.Description, &ts)
+		err := rows.Scan(&x.UrlMd5, &x.Url, &x.Title, &x.Description, &ts)
 		if err != nil {
 			return nil, errors.Wrap(err, "row error")
 		}

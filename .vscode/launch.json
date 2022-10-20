@@ -5,6 +5,17 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "dev bleve-search",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}",
+      "args": [
+        "dev",
+        "bleve-search"
+      ]
+    },
+    {
       "name": "reindex",
       "type": "go",
       "request": "launch",

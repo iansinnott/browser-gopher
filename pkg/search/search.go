@@ -5,8 +5,8 @@ import (
 )
 
 type URLQueryResult struct {
-	Urls  []types.UrlRow
-	Count int
+	Urls  []types.UrlDbEntity
+	Count uint
 }
 
 type SearchProvider interface {
@@ -15,5 +15,5 @@ type SearchProvider interface {
 
 type DataProvider interface {
 	SearchProvider
-	RecentUrls(limit int) (*URLQueryResult, error)
+	RecentUrls(limit uint) (*URLQueryResult, error)
 }
