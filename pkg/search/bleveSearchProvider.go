@@ -21,7 +21,9 @@ func NewBleveSearchProvider(ctx context.Context, conf *config.AppConfig) BleveSe
 func (p BleveSearchProvider) SearchBleve(query string) (*bleve.SearchResult, error) {
 	qry := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(qry)
+	req.Size = 100
 	req.Fields = append(req.Fields, "id", "url", "title", "description", "last_visit")
+	req.IncludeLocations = true
 
 	idx, err := populate.GetIndex()
 	if err != nil {
@@ -53,5 +55,5 @@ func (p BleveSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
 		return nil, err
 	}
 
-	return &URLQueryResult{Urls: xs, Count: uint(result.Total)}, err
+	return &URLQueryResult{Urls: xs, Count: uint(result.Total), Meta: result}, err
 }

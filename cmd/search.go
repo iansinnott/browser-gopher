@@ -8,14 +8,15 @@ import (
 	"strings"
 	"time"
 
+	bs "github.com/blevesearch/bleve/v2/search"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/search"
-	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -23,15 +24,28 @@ var docStyle = lipgloss.NewStyle().Margin(1, 2)
 var titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fafafa"))
 var urlStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#87BCF7"))
 
-func getActiveStyle(style lipgloss.Style) lipgloss.Style {
-	return style.Copy().Underline(true).Background(lipgloss.Color("#D8D7A0")).Foreground(lipgloss.Color("#000000"))
+var HighlightStyle = lipgloss.NewStyle().Background(lipgloss.Color("#D8D7A0")).Foreground(lipgloss.Color("#000000"))
+
+func highlightLocation(loc *bs.Location, text string) string {
+	var sb strings.Builder
+
+	sb.WriteString(text[:loc.Start])
+	sb.WriteString(HighlightStyle.Render(text[loc.Start:loc.End]))
+	sb.WriteString(text[loc.End:])
+
+	return sb.String()
 }
 
-func getTitleString(title string) string {
-	if title == UNTITLED {
-		return title
+func highlightAll(locations bs.TermLocationMap, text string) string {
+	s := text
+
+	for _, locs := range locations {
+		for _, loc := range locs {
+			s = highlightLocation(loc, s)
+		}
 	}
-	return title
+
+	return s
 }
 
 const UNTITLED = "<UNTITLED>"
@@ -49,27 +63,13 @@ func (i item) Title() string {
 		sb.WriteString(" ")
 	}
 
-	title := getTitleString(i.title)
+	title := i.title
 
-	// highlight the query in the text output
-	// if i.query != "" {
-	// 	title = strings.ReplaceAll(title, i.query, getActiveStyle(titleStyle).Render(i.query))
-	// }
-
-	sb.WriteString(title)
+	sb.WriteString(titleStyle.Render(title))
 
 	return sb.String()
 }
-func (i item) Description() string {
-	desc := urlStyle.Render(i.desc)
-
-	// highlight the query in the text output
-	// if i.query != "" {
-	// 	desc = strings.ReplaceAll(desc, i.query, getActiveStyle(urlStyle).Render(i.query))
-	// }
-
-	return desc
-}
+func (i item) Description() string { return urlStyle.Render(i.desc) }
 func (i item) FilterValue() string { return i.title + i.desc }
 
 // @todo Support other systems that don't have `open`
@@ -127,7 +127,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				fmt.Println("search error", err)
 				os.Exit(1)
 			}
-			items := urlsToItems(result.Urls, query)
+			items := resultToItems(result, query)
 			listCmd := m.list.SetItems(items)
 			return m, tea.Batch(inputCmd, listCmd)
 		}
@@ -188,7 +188,7 @@ var searchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		items := urlsToItems(result.Urls, "")
+		items := resultToItems(result, "")
 
 		// Input el
 		input := textinput.New()
@@ -220,7 +220,8 @@ var searchCmd = &cobra.Command{
 	},
 }
 
-func urlsToItems(urls []types.UrlDbEntity, query string) []list.Item {
+func resultToItems(result *search.URLQueryResult, query string) []list.Item {
+	urls := result.Urls
 	items := []list.Item{}
 
 	if len(urls) == 0 {
@@ -228,15 +229,36 @@ func urlsToItems(urls []types.UrlDbEntity, query string) []list.Item {
 		return items
 	}
 
-	for _, x := range urls {
-		title := UNTITLED
-		if x.Title != nil {
-			title = *x.Title
+	for _, u := range urls {
+		displayUrl := u.Url
+		displayTitle := UNTITLED
+		if u.Title != nil {
+			displayTitle = *u.Title
 		}
+
+		// Highlighting
+		if result.Meta != nil {
+			hit, ok := lo.Find(result.Meta.Hits, func(x *bs.DocumentMatch) bool {
+				return x.ID == u.UrlMd5
+			})
+
+			if ok {
+				for k, locations := range hit.Locations {
+					switch k {
+					case "title":
+						displayTitle = highlightAll(locations, displayTitle)
+					case "url":
+						displayUrl = highlightAll(locations, displayUrl)
+					default:
+					}
+				}
+			}
+		}
+
 		items = append(items, item{
-			title: title,
-			desc:  x.Url,
-			date:  x.LastVisit,
+			title: displayTitle,
+			desc:  displayUrl,
+			date:  u.LastVisit,
 			query: query,
 		})
 	}
