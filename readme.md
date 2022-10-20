@@ -21,7 +21,10 @@ For now, install from source:
 # Build browser-gopher
 git clone https://github.com/iansinnott/browser-gopher
 cd browser-gopher
-go build .
+make build
+
+# Check the version
+./browser-gopher --version
 
 # Populate the database
 ./browser-gopher populate --latest
