@@ -63,9 +63,7 @@ func (i item) Title() string {
 		sb.WriteString(" ")
 	}
 
-	title := i.title
-
-	sb.WriteString(titleStyle.Render(title))
+	sb.WriteString(titleStyle.Render(i.title))
 
 	return sb.String()
 }
