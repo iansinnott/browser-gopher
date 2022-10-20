@@ -51,9 +51,10 @@ func (i item) Title() string {
 
 	title := getTitleString(i.title)
 
-	if i.query != "" {
-		title = strings.ReplaceAll(title, i.query, getActiveStyle(titleStyle).Render(i.query))
-	}
+	// highlight the query in the text output
+	// if i.query != "" {
+	// 	title = strings.ReplaceAll(title, i.query, getActiveStyle(titleStyle).Render(i.query))
+	// }
 
 	sb.WriteString(title)
 
@@ -62,9 +63,10 @@ func (i item) Title() string {
 func (i item) Description() string {
 	desc := urlStyle.Render(i.desc)
 
-	if i.query != "" {
-		desc = strings.ReplaceAll(desc, i.query, getActiveStyle(urlStyle).Render(i.query))
-	}
+	// highlight the query in the text output
+	// if i.query != "" {
+	// 	desc = strings.ReplaceAll(desc, i.query, getActiveStyle(urlStyle).Render(i.query))
+	// }
 
 	return desc
 }

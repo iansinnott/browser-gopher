@@ -167,10 +167,23 @@ func CountUrlsWhere(ctx context.Context, db *sql.DB, where string, args ...inter
 }
 
 func UrlsById(ctx context.Context, db *sql.DB, ids ...string) ([]types.UrlDbEntity, error) {
-	qry := fmt.Sprintf("SELECT * FROM urls WHERE url_md5 IN (%s)", strings.Join(
-		lo.Map(ids, func(id string, _ int) string { return "?" }),
-		",",
-	))
+	qry := fmt.Sprintf(
+		`SELECT 
+				url_md5,
+				url,
+				title,
+				description,
+				last_visit
+			FROM 
+				urls 
+			WHERE 
+				url_md5 IN (%s);
+		`,
+		strings.Join(
+			lo.Map(ids, func(id string, _ int) string { return "?" }),
+			",",
+		),
+	)
 
 	// C'mon Go, don't expose your implementation details (this conversion is
 	// necessary becuase of underlying mem representation):
@@ -189,10 +202,18 @@ func UrlsById(ctx context.Context, db *sql.DB, ids ...string) ([]types.UrlDbEnti
 	var urls []types.UrlDbEntity
 	for rows.Next() {
 		var url types.UrlDbEntity
-		err := rows.Scan(&url.UrlMd5, &url.Url, &url.Title, &url.Description, &url.LastVisit)
+		var ts int64
+
+		err := rows.Scan(&url.UrlMd5, &url.Url, &url.Title, &url.Description, &ts)
 		if err != nil {
 			return nil, err
 		}
+
+		if ts != 0 {
+			t := time.Unix(ts, 0)
+			url.LastVisit = &t
+		}
+
 		urls = append(urls, url)
 	}
 
