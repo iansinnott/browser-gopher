@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	bs "github.com/blevesearch/bleve/v2/search"
 	"github.com/iansinnott/browser-gopher/pkg/config"
@@ -29,10 +30,20 @@ var devBleveCmd = &cobra.Command{
 			fmt.Printf("terms: %+v\n", hit.Locations)
 		}
 
-		urls, err := searchProvider.SearchUrls("github")
+		urls, err := searchProvider.SearchUrls(`github`)
 		if err != nil {
-			fmt.Println("search error", err)
-			os.Exit(1)
+			if strings.Contains(err.Error(), "parse error") {
+				fmt.Println("parse error ignored")
+				os.Exit(0)
+			} else {
+				fmt.Println("search error", err)
+				os.Exit(1)
+			}
+		}
+
+		// stop here if no meta info
+		if urls.Meta == nil {
+			os.Exit(0)
 		}
 
 		for _, url := range urls.Urls {

@@ -123,7 +123,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				result, err = m.searchProvider.SearchUrls(query)
 			}
-			if err != nil {
+			// @note we ignored parse errors since they are quite expected when a user is typing
+			if err != nil && !strings.Contains(err.Error(), "parse error") {
 				fmt.Println("search error", err)
 				os.Exit(1)
 			}
@@ -157,6 +158,7 @@ var searchCmd = &cobra.Command{
 
 		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
 		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
+		initialQuery := args[0]
 
 		if noInteractive {
 			if len(args) < 1 {
@@ -165,8 +167,7 @@ var searchCmd = &cobra.Command{
 				return
 			}
 
-			query := args[0]
-			result, err := searchProvider.SearchUrls(query)
+			result, err := searchProvider.SearchUrls(initialQuery)
 			if err != nil {
 				fmt.Println("search error", err)
 				os.Exit(1)
@@ -177,13 +178,20 @@ var searchCmd = &cobra.Command{
 				fmt.Printf("%v %s %sv\n", x.LastVisit.Format("2006-01-02"), *x.Title, x.Url)
 			}
 
-			fmt.Printf("Found %d results for \"%s\"\n", result.Count, query)
+			fmt.Printf("Found %d results for \"%s\"\n", result.Count, initialQuery)
 			os.Exit(0)
 			return
 		}
 
-		result, err := dataProvider.RecentUrls(100)
-		if err != nil {
+		var result *search.URLQueryResult
+
+		if initialQuery == "" {
+			result, err = dataProvider.RecentUrls(100)
+		} else {
+			result, err = searchProvider.SearchUrls(initialQuery)
+		}
+
+		if err != nil && !strings.Contains(err.Error(), "parse error") {
 			fmt.Println("search error", err)
 			os.Exit(1)
 		}
@@ -193,6 +201,7 @@ var searchCmd = &cobra.Command{
 		// Input el
 		input := textinput.New()
 		input.Placeholder = "Search..."
+		input.SetValue(initialQuery)
 		input.Focus()
 
 		// Search results list el
@@ -221,13 +230,12 @@ var searchCmd = &cobra.Command{
 }
 
 func resultToItems(result *search.URLQueryResult, query string) []list.Item {
+	if result == nil || len(result.Urls) == 0 {
+		return []list.Item{item{title: "No results found"}}
+	}
+
 	urls := result.Urls
 	items := []list.Item{}
-
-	if len(urls) == 0 {
-		items = append(items, item{title: "No results found"})
-		return items
-	}
 
 	for _, u := range urls {
 		displayUrl := u.Url
