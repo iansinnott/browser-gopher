@@ -17,6 +17,8 @@ For now, install from source:
 # Install go if you don't have it: https://go.dev/doc/install
 # If on a mac, install through brew:
 #brew install go
+# debian based:
+#apt install golang
 
 # Build browser-gopher
 git clone https://github.com/iansinnott/browser-gopher
