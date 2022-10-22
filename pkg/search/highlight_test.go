@@ -22,14 +22,34 @@ func TestHighlight(t *testing.T) {
 			name: "individual term at start of string, sub-word match",
 			a: bs.TermLocationMap{
 				"test": bs.Locations{
-					{
-						Start: 0,
-						End:   4,
-					},
+					{Start: 0, End: 4},
 				},
 			},
 			b:        "testing how this works",
 			expected: `<match>test</match>ing how this works`,
+		},
+		{
+			name: "multiple matches",
+			a: bs.TermLocationMap{
+				"heyo": bs.Locations{
+					{Start: 0, End: 4},
+					{Start: 5, End: 9},
+				},
+			},
+			b:        "heyo heyo",
+			expected: `<match>heyo</match> <match>heyo</match>`,
+		},
+		{
+			a: bs.TermLocationMap{
+				"hey": bs.Locations{
+					{Start: 0, End: 3},
+				},
+				"you": bs.Locations{
+					{Start: 4, End: 7},
+				},
+			},
+			b:        "hey you",
+			expected: `<match>hey</match> <match>you</match>`,
 		},
 	}
 
