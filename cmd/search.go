@@ -36,28 +36,6 @@ func highlightLocation(loc *bs.Location, text string) string {
 	return sb.String()
 }
 
-func highlightAll(locations bs.TermLocationMap, text string) string {
-	var lastEnd uint64 = 0
-	xs := []string{}
-
-	for _, locs := range locations {
-		for _, loc := range locs {
-			if lastEnd > loc.Start {
-				// locations out of order? if you slice something like [12:3] it will fail. first must be less than second
-				continue
-			}
-
-			xs = append(xs, text[lastEnd:loc.Start])
-			xs = append(xs, HighlightStyle.Render(text[loc.Start:loc.End]))
-			lastEnd = loc.End
-		}
-	}
-
-	xs = append(xs, text[lastEnd:])
-
-	return strings.Join(xs, "")
-}
-
 const UNTITLED = "<UNTITLED>"
 
 type item struct {
@@ -266,9 +244,9 @@ func resultToItems(result *search.URLQueryResult, query string) []list.Item {
 				for k, locations := range hit.Locations {
 					switch k {
 					case "title":
-						displayTitle = highlightAll(locations, displayTitle)
+						displayTitle = search.HighlightAll(locations, displayTitle, HighlightStyle.Render)
 					case "url":
-						displayUrl = highlightAll(locations, displayUrl)
+						displayUrl = search.HighlightAll(locations, displayUrl, HighlightStyle.Render)
 					default:
 					}
 				}
