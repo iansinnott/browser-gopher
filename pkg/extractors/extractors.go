@@ -1,6 +1,7 @@
 package extractors
 
 import (
+	"errors"
 	"log"
 	"os"
 
@@ -8,9 +9,10 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
 
-type pathSpec struct {
-	name            string
-	path            string
+type browserDataSource struct {
+	name string
+	// @todo Hrm, so make this []string as a way to support multiple OSs? is there a case where any of the other logic would not be platform agnostic?
+	paths           []string
 	findDBs         func(string) ([]string, error)
 	createExtractor func(name string, dbPath string) types.Extractor
 }
@@ -22,11 +24,11 @@ type pathSpec struct {
 func BuildExtractorList() ([]types.Extractor, error) {
 	result := []types.Extractor{}
 
-	pathsToTry := []pathSpec{
+	candidateBrowsers := []browserDataSource{
 		// Chrome-like
 		{
 			name:    "chrome",
-			path:    util.Expanduser("~/Library/Application Support/Google/Chrome/"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/Google/Chrome/")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -34,7 +36,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 		{
 			name:    "brave",
-			path:    util.Expanduser("~/Library/Application Support/BraveSoftware/Brave-Browser"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/BraveSoftware/Brave-Browser")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -42,7 +44,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 		{
 			name:    "brave-beta",
-			path:    util.Expanduser("~/Library/Application Support/BraveSoftware/Brave-Browser-Beta"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/BraveSoftware/Brave-Browser-Beta")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -50,7 +52,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 		{
 			name:    "arc",
-			path:    util.Expanduser("~/Library/Application Support/Arc/User Data"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/Arc/User Data")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -58,7 +60,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 		{
 			name:    "vivaldi",
-			path:    util.Expanduser("~/Library/Application Support/Vivaldi"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/Vivaldi")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -66,7 +68,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 		{
 			name:    "sidekick",
-			path:    util.Expanduser("~/Library/Application Support/Sidekick"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/Sidekick")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -74,7 +76,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 		{
 			name:    "edge",
-			path:    util.Expanduser("~/Library/Application Support/Microsoft Edge"),
+			paths:   []string{util.Expanduser("~/Library/Application Support/Microsoft Edge")},
 			findDBs: FindChromiumDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &ChromiumExtractor{Name: name, HistoryDBPath: dbPath}
@@ -84,8 +86,11 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		// Firefox-like
 		// @todo What is the path for FF dev edition?
 		{
-			name:    "firefox",
-			path:    util.Expanduser("~/Library/Application Support/Firefox/Profiles/"),
+			name: "firefox",
+			paths: []string{
+				util.Expanduser("~/Library/Application Support/Firefox/Profiles/"), // osx
+				util.Expanduser("~/.mozilla/firefox/"),                             // lin
+			},
 			findDBs: FindFirefoxDBs,
 			createExtractor: func(name, dbPath string) types.Extractor {
 				return &FirefoxExtractor{Name: name, HistoryDBPath: dbPath}
@@ -95,8 +100,8 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		// Firefox-like
 		// @todo What is the path for safari preview edition?
 		{
-			name: "safari",
-			path: util.Expanduser("~/Library/Safari/"),
+			name:  "safari",
+			paths: []string{util.Expanduser("~/Library/Safari/")},
 			findDBs: func(s string) ([]string, error) {
 				dbPath := s + "History.db"
 				if _, err := os.Stat(dbPath); err != nil {
@@ -111,8 +116,8 @@ func BuildExtractorList() ([]types.Extractor, error) {
 
 		// Orion
 		{
-			name: "orion",
-			path: util.Expanduser("~/Library/Application Support/Orion/Defaults/"),
+			name:  "orion",
+			paths: []string{util.Expanduser("~/Library/Application Support/Orion/Defaults/")},
 			findDBs: func(s string) ([]string, error) {
 				dbPath := s + "history"
 				if _, err := os.Stat(dbPath); err != nil {
@@ -129,8 +134,8 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		// actively changing with the most novel data model. So this may well break
 		// with some future update.
 		{
-			name: "sigmaos",
-			path: util.Expanduser("~/Library/Containers/com.sigmaos.sigmaos.macos/Data/Library/Application Support/SigmaOS/"),
+			name:  "sigmaos",
+			paths: []string{util.Expanduser("~/Library/Containers/com.sigmaos.sigmaos.macos/Data/Library/Application Support/SigmaOS/")},
 			findDBs: func(s string) ([]string, error) {
 				dbPath := s + "Model.sqlite"
 				if _, err := os.Stat(dbPath); err != nil {
@@ -144,20 +149,22 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 	}
 
-	for _, x := range pathsToTry {
-		stat, err := os.Stat(x.path)
-		if err != nil || !stat.IsDir() {
-			// @todo Put this into a debug logger to avoid noise
-			log.Println("["+x.name+"] not found. skipping:", x.path)
-			continue
-		}
+	for _, browser := range candidateBrowsers {
+		for _, p := range browser.paths {
+			_, err := os.Stat(p)
+			if errors.Is(err, os.ErrNotExist) {
+				// @todo Put this into a debug logger to avoid noise
+				log.Println("["+browser.name+"] not found. skipping:", browser.paths)
+				continue
+			}
 
-		dbs, err := x.findDBs(x.path)
-		if err != nil {
-			return nil, err
-		}
-		for _, dbPath := range dbs {
-			result = append(result, x.createExtractor(x.name, dbPath))
+			dbs, err := browser.findDBs(p)
+			if err != nil {
+				return nil, err
+			}
+			for _, dbPath := range dbs {
+				result = append(result, browser.createExtractor(browser.name, dbPath))
+			}
 		}
 	}
 
