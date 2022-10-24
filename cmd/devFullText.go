@@ -52,7 +52,8 @@ Example:
 		var hostname string
 		var pathname string
 
-		err = os.MkdirAll("tmp", 0755)
+		cacheDir := filepath.Join("tmp", "scrape_cache")
+		err = os.MkdirAll(cacheDir, 0755)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "mkdir: %s\n", err)
 			os.Exit(1)
@@ -78,8 +79,8 @@ Example:
 
 			collector := colly.NewCollector(
 				colly.UserAgent(ua),
-				colly.CacheDir("tmp"), // without cachedir colly will re-request every site (which may be what you want, just note)
-				colly.MaxDepth(1),     // 0 means unlimited. not sure how this actually works since I thought it does NOT spider by default
+				colly.CacheDir(cacheDir), // without cachedir colly will re-request every site (which may be what you want, just note)
+				colly.MaxDepth(1),        // 0 means unlimited. not sure how this actually works since I thought it does NOT spider by default
 				colly.AllowedDomains(hostname),
 				colly.Async(false),
 				colly.IgnoreRobotsTxt(),
