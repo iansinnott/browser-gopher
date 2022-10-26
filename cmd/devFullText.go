@@ -10,6 +10,7 @@ import (
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/iansinnott/browser-gopher/pkg/fulltext"
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/spf13/cobra"
 	stripmd "github.com/writeas/go-strip-markdown"
@@ -45,7 +46,7 @@ Example:
 
 		targetUrl := args[0]
 		urlMd5 := util.HashMd5String(targetUrl)
-		fmt.Println(urlMd5, targetUrl)
+		logging.Debug().Println("processing", urlMd5, targetUrl)
 
 		var html []byte
 		var err error
@@ -85,20 +86,12 @@ Example:
 			}
 
 			if len(htmls) != 1 {
-				fmt.Fprintf(os.Stderr, "no html found")
+				fmt.Fprintf(os.Stderr, "no html body found")
 				os.Exit(1)
 			}
 
 			// @note the urls in the htmls map may not match the passed-in URLs. this is not a good API
-			//
-			// @todo This is indicative that this system won't work actually. we use
-			// URLs as the unique key for a record. If we can't tie the _initial_ url
-			// to a response body then we have no way to store the data and make it
-			// searchable.
-			for _, page := range htmls {
-				html = page.Body
-				break
-			}
+			html = htmls[targetUrl].Body
 		}
 
 		outFile := fmt.Sprintf("%s_%s_%s", urlMd5, hostname, pathname)

@@ -2,9 +2,9 @@ package extractors
 
 import (
 	"errors"
-	"log"
 	"os"
 
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
@@ -154,7 +154,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 			_, err := os.Stat(p)
 			if errors.Is(err, os.ErrNotExist) {
 				// @todo Put this into a debug logger to avoid noise
-				log.Println("["+browser.name+"] not found. skipping:", browser.paths)
+				logging.Debug().Println("["+browser.name+"] not found. skipping:", browser.paths)
 				continue
 			}
 
