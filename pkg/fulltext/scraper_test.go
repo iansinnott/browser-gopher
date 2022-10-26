@@ -37,6 +37,12 @@ func TestScrapeUrls(t *testing.T) {
 		})
 	}
 
+	t.Run("will scrape 404s", func(t *testing.T) {
+		xm, err := scraper.ScrapeUrls("https://example.com/404")
+		require.Nil(t, err)
+		require.NotEmpty(t, xm["https://example.com/404"])
+		require.Equal(t, xm["https://example.com/404"].StatusCode, 404)
+	})
 }
 
 func TestScrapeMultipleUrls(t *testing.T) {
@@ -44,6 +50,13 @@ func TestScrapeMultipleUrls(t *testing.T) {
 
 	t.Run("scrape multiple urls", func(t *testing.T) {
 		xm, err := scraper.ScrapeUrls("https://example.com", "https://iansinnott.com")
+		require.Nil(t, err)
+		require.NotEmpty(t, xm["https://example.com"].Body)
+		require.NotEmpty(t, xm["https://iansinnott.com"].Body)
+	})
+
+	t.Run("repeatable results", func(t *testing.T) {
+		xm, err := scraper.ScrapeUrls("https://iansinnott.com", "https://example.com")
 		require.Nil(t, err)
 		require.NotEmpty(t, xm["https://example.com"].Body)
 		require.NotEmpty(t, xm["https://iansinnott.com"].Body)

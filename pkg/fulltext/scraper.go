@@ -15,6 +15,7 @@ type WebPage struct {
 	Url        string
 	Body       []byte
 	Redirected bool
+	StatusCode int
 }
 
 type Scraper struct {
@@ -34,10 +35,11 @@ func NewScraper() *Scraper {
 	ua, _ := GetUserAgent()
 	collector := colly.NewCollector(
 		colly.UserAgent(ua),
-		// colly.CacheDir(cacheDir), // without cachedir colly will re-request every site (which may be what you want, just note)
 		colly.MaxDepth(1), // 0 means unlimited. not sure how this actually works since I thought it does NOT spider by default
 		colly.Async(true),
 		colly.IgnoreRobotsTxt(),
+		colly.AllowURLRevisit(),
+		// colly.CacheDir(cacheDir), // without cachedir colly will re-request every site (which may be what you want, just note)
 	)
 
 	scraper := &Scraper{
@@ -47,11 +49,11 @@ func NewScraper() *Scraper {
 	}
 
 	collector.OnRequest(func(r *colly.Request) {
-		fmt.Println("Fetching", r.URL)
+		logging.Debug().Println("GET", r.URL)
 	})
 
 	collector.OnResponseHeaders(func(r *colly.Response) {
-		fmt.Println("GET", r.StatusCode, r.Request.URL)
+		logging.Debug().Println(r.StatusCode, r.Request.URL)
 	})
 
 	collector.SetRedirectHandler(func(req *http.Request, via []*http.Request) error {
@@ -78,28 +80,37 @@ func NewScraper() *Scraper {
 	})
 
 	collector.OnResponse(func(r *colly.Response) {
-		var url string
-		var redirected bool
+		u, redirected := scraper.UnredirectUrl(r.Request.URL.String())
 
-		if scraper.redirects[r.Request.URL.String()] != "" {
-			url = scraper.redirects[r.Request.URL.String()]
-			redirected = true
-		} else {
-			url = r.Request.URL.String()
-		}
-
-		scraper.scrapedPages[url] = WebPage{
-			Url:        url,
+		scraper.scrapedPages[u] = WebPage{
+			Url:        u,
 			Body:       r.Body,
 			Redirected: redirected,
+			StatusCode: r.StatusCode,
 		}
 	})
 
 	collector.OnError(func(r *colly.Response, err error) {
-		fmt.Fprintf(os.Stderr, "error: %v %s\n", r.StatusCode, err)
+		logging.Debug().Printf("error: %v %s\n", r.StatusCode, err)
+		u, redirected := scraper.UnredirectUrl(r.Request.URL.String())
+
+		scraper.scrapedPages[u] = WebPage{
+			Url:        u,
+			Body:       r.Body,
+			Redirected: redirected,
+			StatusCode: r.StatusCode,
+		}
 	})
 
 	return scraper
+}
+
+func (s *Scraper) UnredirectUrl(url string) (u string, redirected bool) {
+	if s.redirects[url] != "" {
+		return s.redirects[url], true
+	}
+
+	return url, false
 }
 
 func (s *Scraper) ScrapeUrls(urls ...string) (map[string]WebPage, error) {
@@ -111,18 +122,23 @@ func (s *Scraper) ScrapeUrls(urls ...string) (map[string]WebPage, error) {
 			return nil, err
 		}
 
-		s.collector.Visit(targetUrl)
+		err = s.collector.Visit(targetUrl)
+
+		if err != nil {
+			logging.Debug().Println("could not visit", targetUrl, err)
+			return nil, err
+		}
 	}
 
 	// make sure async requests have finished
 	s.collector.Wait()
 
-	result := map[string]WebPage{}
+	// result := map[string]WebPage{}
 
-	for url, webPage := range s.scrapedPages {
-		result[url] = webPage
-		delete(s.scrapedPages, url)
-	}
+	// for url, webPage := range s.scrapedPages {
+	// 	result[url] = webPage
+	// 	delete(s.scrapedPages, url)
+	// }
 
-	return result, nil
+	return s.scrapedPages, nil
 }
