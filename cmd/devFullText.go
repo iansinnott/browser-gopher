@@ -89,7 +89,11 @@ Example:
 				os.Exit(1)
 			}
 
-			html = htmls[targetUrl]
+			// @note the urls in the htmls map may not match the passed-in URLs. this is not a good API
+			for _, page := range htmls {
+				html = page.Body
+				break
+			}
 		}
 
 		outFile := fmt.Sprintf("%s_%s_%s", urlMd5, hostname, pathname)

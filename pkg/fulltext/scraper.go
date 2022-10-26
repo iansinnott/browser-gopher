@@ -8,9 +8,14 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
+type WebPage struct {
+	Url  string
+	Body []byte
+}
+
 type Scraper struct {
-	collector   *colly.Collector
-	scrapedUrls map[string][]byte
+	collector    *colly.Collector
+	scrapedPages map[string]WebPage
 }
 
 // get user agent returns a valid user agent for use in scraping. in the future
@@ -31,8 +36,8 @@ func NewScraper() *Scraper {
 	)
 
 	scraper := &Scraper{
-		collector:   collector,
-		scrapedUrls: map[string][]byte{},
+		collector:    collector,
+		scrapedPages: map[string]WebPage{},
 	}
 
 	collector.OnRequest(func(r *colly.Request) {
@@ -40,13 +45,11 @@ func NewScraper() *Scraper {
 	})
 
 	collector.OnResponse(func(r *colly.Response) {
-		l := r.Headers.Get("Content-Length")
-		if l == "" {
-			fmt.Println("No content length header")
-		} else {
-			fmt.Println("Fetched", l, "bytes")
+		fmt.Println("Fetched", len(r.Body), "bytes")
+		scraper.scrapedPages[r.Request.URL.String()] = WebPage{
+			Url:  r.Request.URL.String(),
+			Body: r.Body,
 		}
-		scraper.scrapedUrls[r.Request.URL.String()] = r.Body
 	})
 
 	collector.OnError(func(r *colly.Response, err error) {
@@ -56,7 +59,7 @@ func NewScraper() *Scraper {
 	return scraper
 }
 
-func (s *Scraper) ScrapeUrls(urls []string) (map[string][]byte, error) {
+func (s *Scraper) ScrapeUrls(urls []string) (map[string]WebPage, error) {
 	for _, targetUrl := range urls {
 		_, err := url.Parse(targetUrl)
 		if err != nil {
@@ -73,11 +76,11 @@ func (s *Scraper) ScrapeUrls(urls []string) (map[string][]byte, error) {
 	// make sure async requests have finished
 	s.collector.Wait()
 
-	result := map[string][]byte{}
+	result := map[string]WebPage{}
 
-	for url, body := range s.scrapedUrls {
-		result[url] = body
-		delete(s.scrapedUrls, url)
+	for url, webPage := range s.scrapedPages {
+		result[url] = webPage
+		delete(s.scrapedPages, url)
 	}
 
 	return result, nil
