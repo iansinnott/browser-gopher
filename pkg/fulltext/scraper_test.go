@@ -37,10 +37,15 @@ func TestScrapeUrls(t *testing.T) {
 		})
 	}
 
-	// t.Run("scrape multiple websites", func(t *testing.T) {
-	// 	xm, err := scraper.ScrapeUrls("https://example.com", "https://iansinnott.com")
-	// 	require.Nil(t, err)
-	// 	require.NotEmpty(t, xm["https://example.com"].Body)
-	// 	require.NotEmpty(t, xm["https://iansinnott.com"].Body)
-	// })
+}
+
+func TestScrapeMultipleUrls(t *testing.T) {
+	scraper := fulltext.NewScraper()
+
+	t.Run("scrape multiple urls", func(t *testing.T) {
+		xm, err := scraper.ScrapeUrls("https://example.com", "https://iansinnott.com")
+		require.Nil(t, err)
+		require.NotEmpty(t, xm["https://example.com"].Body)
+		require.NotEmpty(t, xm["https://iansinnott.com"].Body)
+	})
 }
