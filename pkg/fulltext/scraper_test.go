@@ -29,7 +29,7 @@ func TestScrapeUrls(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			xm, err := scraper.ScrapeUrls([]string{tt.url})
+			xm, err := scraper.ScrapeUrls(tt.url)
 			require.Nil(t, err)
 			require.NotEmpty(t, xm[tt.url])
 			body := xm[tt.url].Body
@@ -38,7 +38,7 @@ func TestScrapeUrls(t *testing.T) {
 	}
 
 	// t.Run("scrape multiple websites", func(t *testing.T) {
-	// 	xm, err := scraper.ScrapeUrls([]string{"https://example.com", "https://iansinnott.com"})
+	// 	xm, err := scraper.ScrapeUrls("https://example.com", "https://iansinnott.com")
 	// 	require.Nil(t, err)
 	// 	require.NotEmpty(t, xm["https://example.com"].Body)
 	// 	require.NotEmpty(t, xm["https://iansinnott.com"].Body)

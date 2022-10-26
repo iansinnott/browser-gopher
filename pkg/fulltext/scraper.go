@@ -36,7 +36,7 @@ func NewScraper() *Scraper {
 		colly.UserAgent(ua),
 		// colly.CacheDir(cacheDir), // without cachedir colly will re-request every site (which may be what you want, just note)
 		colly.MaxDepth(1), // 0 means unlimited. not sure how this actually works since I thought it does NOT spider by default
-		colly.Async(false),
+		colly.Async(true),
 		colly.IgnoreRobotsTxt(),
 	)
 
@@ -102,7 +102,7 @@ func NewScraper() *Scraper {
 	return scraper
 }
 
-func (s *Scraper) ScrapeUrls(urls []string) (map[string]WebPage, error) {
+func (s *Scraper) ScrapeUrls(urls ...string) (map[string]WebPage, error) {
 	for _, targetUrl := range urls {
 		_, err := url.Parse(targetUrl)
 

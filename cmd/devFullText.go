@@ -78,7 +78,7 @@ Example:
 			hostname = u.Hostname()
 			pathname = strings.ReplaceAll(strings.Trim(u.Path, "/"), "/", "_")
 			scraper := fulltext.NewScraper()
-			htmls, err := scraper.ScrapeUrls([]string{targetUrl})
+			htmls, err := scraper.ScrapeUrls(targetUrl)
 
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: %s ", err)
