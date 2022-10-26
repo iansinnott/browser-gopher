@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/gocolly/colly/v2"
+	"github.com/iansinnott/browser-gopher/pkg/fulltext"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/spf13/cobra"
 	stripmd "github.com/writeas/go-strip-markdown"
@@ -73,37 +73,23 @@ Example:
 				fmt.Fprintf(os.Stderr, "could not parse: %s\n", err)
 				os.Exit(1)
 			}
+
 			hostname = u.Hostname()
 			pathname = strings.ReplaceAll(strings.Trim(u.Path, "/"), "/", "_")
-			ua, _ := GetUserAgent()
+			scraper := fulltext.NewScraper()
+			htmls, err := scraper.ScrapeUrls([]string{targetUrl})
 
-			collector := colly.NewCollector(
-				colly.UserAgent(ua),
-				colly.CacheDir(cacheDir), // without cachedir colly will re-request every site (which may be what you want, just note)
-				colly.MaxDepth(1),        // 0 means unlimited. not sure how this actually works since I thought it does NOT spider by default
-				colly.AllowedDomains(hostname),
-				colly.Async(false),
-				colly.IgnoreRobotsTxt(),
-			)
-
-			collector.OnRequest(func(r *colly.Request) {
-				fmt.Println("Fetching", r.URL)
-			})
-
-			collector.OnResponse(func(r *colly.Response) {
-				fmt.Println("Fetched", len(r.Body), "bytes")
-				html = r.Body
-			})
-
-			collector.OnError(func(r *colly.Response, err error) {
-				fmt.Fprintf(os.Stderr, "error: %v %s\n", r.StatusCode, err)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: %s ", err)
 				os.Exit(1)
-			})
+			}
 
-			collector.Visit(targetUrl)
+			if len(htmls) != 1 {
+				fmt.Fprintf(os.Stderr, "no html found")
+				os.Exit(1)
+			}
 
-			// unneeded since we're not async, but if you decide to go async you may need this
-			collector.Wait()
+			html = htmls[targetUrl]
 		}
 
 		outFile := fmt.Sprintf("%s_%s_%s", urlMd5, hostname, pathname)
