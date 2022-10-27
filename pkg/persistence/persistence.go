@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS "visits" (
 
 CREATE UNIQUE INDEX IF NOT EXISTS visits_unique ON visits(url_md5, visit_time);
 CREATE INDEX IF NOT EXISTS visits_url_md5 ON visits(url_md5);
+
+CREATE TABLE IF NOT EXISTS "documents" (
+  "document_md5" VARCHAR(32) PRIMARY KEY NOT NULL,
+  "url_md5" VARCHAR(32) UNIQUE NOT NULL REFERENCES urls(url_md5),
+	"markdown_path" TEXT,
+	"status_code" INTEGER,
+  "accessed_at" INTEGER
+);
 `
 
 // Open a connection to the database. Calling code should close the connection when done.
@@ -127,6 +135,21 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error
 	}
 
 	_, err := db.ExecContext(ctx, qry, md5, indexed_at)
+	return err
+}
+
+func InsertDocument(ctx context.Context, db *sql.DB, row *types.DocumentRow) error {
+	const qry = `
+		INSERT OR REPLACE INTO documents(document_md5, url_md5, markdown_path, status_code, accessed_at)
+			VALUES(?, ?, ?, ?, ?);
+	`
+	var accessed_at int64
+
+	if row.AccessedAt != nil {
+		accessed_at = row.AccessedAt.Unix()
+	}
+
+	_, err := db.ExecContext(ctx, qry, row.DocumentMd5, row.UrlMd5, row.MarkdownPath, row.StatusCode, accessed_at)
 	return err
 }
 

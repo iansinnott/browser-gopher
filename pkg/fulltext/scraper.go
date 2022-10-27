@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/gocolly/colly/v2"
+	"github.com/gocolly/colly/v2/debug"
 	"github.com/iansinnott/browser-gopher/pkg/logging"
 )
 
@@ -40,7 +42,20 @@ func NewScraper() *Scraper {
 		colly.IgnoreRobotsTxt(),
 		colly.AllowURLRevisit(),
 		// colly.CacheDir(cacheDir), // without cachedir colly will re-request every site (which may be what you want, just note)
+
+		colly.Debugger(&debug.LogDebugger{}),
 	)
+
+	err := collector.Limit(&colly.LimitRule{
+		DomainGlob:  "*",
+		Parallelism: runtime.NumCPU(),
+		Delay:       1,
+		RandomDelay: 1,
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not set limit rule: %s\n", err)
+	}
 
 	scraper := &Scraper{
 		collector:    collector,

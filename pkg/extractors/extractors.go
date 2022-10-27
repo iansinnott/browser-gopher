@@ -153,8 +153,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		for _, p := range browser.paths {
 			_, err := os.Stat(p)
 			if errors.Is(err, os.ErrNotExist) {
-				// @todo Put this into a debug logger to avoid noise
-				logging.Debug().Println("["+browser.name+"] not found. skipping:", browser.paths)
+				logging.Debug().Println("["+browser.name+"] not found. skipping:", p)
 				continue
 			}
 

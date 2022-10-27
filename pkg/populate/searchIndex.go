@@ -36,6 +36,7 @@ type SearchableEntity struct {
 	Title       *string    `json:"title"`
 	Description *string    `json:"description"`
 	LastVisit   *time.Time `json:"last_visit"`
+	Body        *string    `json:"body"`
 }
 
 // reference the index so that it does't get opened multiple times (causes
@@ -112,6 +113,33 @@ func BuildIndex(ctx context.Context, db *sql.DB) (int, error) {
 	}
 
 	return indexedCount, err
+}
+
+// Index (or reindex) an individual document. If doc.Id is already present in
+// the search index it will be overwritten.
+func IndexDocument(ctx context.Context, db *sql.DB, doc SearchableEntity) error {
+	idx, err := GetIndex()
+	if err != nil {
+		return errors.Wrap(err, "error getting index")
+	}
+
+	err = (*idx).Index(doc.Id, doc)
+	if err != nil {
+		return errors.Wrap(err, "error indexing document")
+	}
+
+	t := time.Now()
+	meta := &types.UrlMetaRow{
+		Url:       doc.Url,
+		IndexedAt: &t,
+	}
+
+	err = persistence.InsertUrlMeta(ctx, db, meta)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index) (int, error) {

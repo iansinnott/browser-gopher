@@ -19,6 +19,17 @@ type UrlMetaRow struct {
 	IndexedAt *time.Time // Nullable
 }
 
+// DocumentRow represents a full-text document. The HTML version of a web page.
+// However, the HTML body is not stored (for now). The page will be distilled to
+// plain text. A markdown version will be stored on disk, again, for now.
+type DocumentRow struct {
+	DocumentMd5  string
+	UrlMd5       string
+	MarkdownPath string     // path on disk to stored markdown
+	StatusCode   int        // the HTTP status code returned during fetch
+	AccessedAt   *time.Time // Nullable
+}
+
 // The URL as represented in the db.
 type UrlDbEntity struct {
 	UrlMd5      string

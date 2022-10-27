@@ -42,6 +42,12 @@ var populateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		shouldScrapeFulltext, err := cmd.Flags().GetBool("fulltext")
+		if err != nil {
+			fmt.Println("could not parse --fulltext:", err)
+			os.Exit(1)
+		}
+
 		extractors, err := ex.BuildExtractorList()
 		if err != nil {
 			log.Println("error getting extractors", err)
@@ -97,6 +103,14 @@ var populateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if shouldScrapeFulltext {
+			err := populate.PopulateFulltext(cmd.Context(), dbConn)
+			if err != nil {
+				fmt.Println("Encountered an error", err)
+				os.Exit(1)
+			}
+		}
+
 		if shouldBuildIndex {
 			fmt.Println("Indexing results...")
 			t := time.Now()
@@ -115,4 +129,5 @@ func init() {
 	populateCmd.Flags().StringP("browser", "b", "", "Specify the browser name you'd like to extract")
 	populateCmd.Flags().Bool("latest", false, "Only populate data that's newer than last import (Recommended, likely will be default in future version)")
 	populateCmd.Flags().Bool("build-index", true, "Whether or not to build the search index. Required for search to work.")
+	populateCmd.Flags().Bool("fulltext", false, "Whether or not to collect the full-text of each page in your browsing history and make it searchable.")
 }
