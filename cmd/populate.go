@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
@@ -104,11 +105,34 @@ var populateCmd = &cobra.Command{
 		}
 
 		if shouldScrapeFulltext {
-			err := populate.PopulateFulltext(cmd.Context(), dbConn)
-			if err != nil {
-				fmt.Println("Encountered an error", err)
-				os.Exit(1)
+			var n int
+			retries := 5
+			t := time.Now()
+
+			// @note It's not clear why sqlite is throwing busy errors. Concurrency is
+			// used under the hood by colly but not directly in our code, so in theory
+			// there should be only one goroutine accessing the database.
+			// The retry loop is a workaround for episodic sqlite busy errors.
+			for retries > 0 {
+				n, err = populate.PopulateFulltext(cmd.Context(), dbConn)
+				if err != nil {
+					// if the error is sqlite_busy then retry once
+					if strings.Contains(err.Error(), "database is locked") {
+						fmt.Println("database is locked, retrying in 5 seconds")
+						time.Sleep(5 * time.Second)
+						retries--
+						continue
+					}
+
+					fmt.Println("encountered an error with fulltext", err)
+					os.Exit(1)
+				}
+
+				// if no error then break out
+				break
 			}
+
+			log.Printf("Scraped %d pages in %v\n", n, time.Since(t))
 		}
 
 		if shouldBuildIndex {
@@ -119,7 +143,7 @@ var populateCmd = &cobra.Command{
 				fmt.Println("encountered an error building the search index", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Indexed %d records in %v\n", n, time.Since(t))
+			log.Printf("Indexed %d records in %v\n", n, time.Since(t))
 		}
 	},
 }

@@ -23,11 +23,11 @@ type UrlMetaRow struct {
 // However, the HTML body is not stored (for now). The page will be distilled to
 // plain text. A markdown version will be stored on disk, again, for now.
 type DocumentRow struct {
-	DocumentMd5  string
-	UrlMd5       string
-	MarkdownPath string     // path on disk to stored markdown
-	StatusCode   int        // the HTTP status code returned during fetch
-	AccessedAt   *time.Time // Nullable
+	DocumentMd5 string
+	UrlMd5      string
+	StatusCode  int        // the HTTP status code returned during fetch
+	AccessedAt  *time.Time // Nullable
+	Body        *string    // Fulltext of the webpage as markdown
 }
 
 // The URL as represented in the db.
@@ -58,4 +58,13 @@ type Extractor interface {
 	// sqlite, it's not uncommon for a db to be locked. The Open call will work
 	// but the db cannot be read.
 	VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error)
+}
+
+type SearchableEntity struct {
+	Id          string     `json:"id"`
+	Url         string     `json:"url"`
+	Title       *string    `json:"title"`
+	Description *string    `json:"description"`
+	LastVisit   *time.Time `json:"last_visit"`
+	Body        *string    `json:"body"`
 }

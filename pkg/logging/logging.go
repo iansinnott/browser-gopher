@@ -13,6 +13,10 @@ const DEBUG = 1
 
 var LOG_LEVEL = 0
 
+func IsDebug() bool {
+	return LOG_LEVEL == DEBUG
+}
+
 func SetLogLevel(level int) {
 	LOG_LEVEL = level
 }

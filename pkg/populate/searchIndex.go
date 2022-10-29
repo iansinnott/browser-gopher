@@ -13,32 +13,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const queryUnindexedUrls = `
-SELECT
-  u.url_md5,
-  url,
-  title,
-  description,
-  last_visit
-FROM
-  urls u
-  LEFT OUTER JOIN urls_meta um ON u.url_md5 = um.url_md5
-WHERE
-  um.indexed_at IS NULL
-ORDER BY 
-	last_visit DESC
-LIMIT ?;
-`
-
-type SearchableEntity struct {
-	Id          string     `json:"id"`
-	Url         string     `json:"url"`
-	Title       *string    `json:"title"`
-	Description *string    `json:"description"`
-	LastVisit   *time.Time `json:"last_visit"`
-	Body        *string    `json:"body"`
-}
-
 // reference the index so that it does't get opened multiple times (causes
 // breakage). What's the best way to do this?
 var index bleve.Index
@@ -95,9 +69,14 @@ func BuildIndex(ctx context.Context, db *sql.DB) (int, error) {
 	}
 
 	for indexedCount < toIndexCount {
-		n, err := batchIndex(ctx, db, *idx)
+		// get documents to index
+		ents, err := getUnindexed(ctx, db)
+		if err != nil {
+			return 0, err
+		}
 
-		// break early if there was an error
+		// index them
+		n, err := batchIndex(ctx, db, *idx, ents...)
 		if err != nil {
 			return 0, err
 		}
@@ -117,7 +96,7 @@ func BuildIndex(ctx context.Context, db *sql.DB) (int, error) {
 
 // Index (or reindex) an individual document. If doc.Id is already present in
 // the search index it will be overwritten.
-func IndexDocument(ctx context.Context, db *sql.DB, doc SearchableEntity) error {
+func IndexDocument(ctx context.Context, db *sql.DB, doc types.SearchableEntity) error {
 	idx, err := GetIndex()
 	if err != nil {
 		return errors.Wrap(err, "error getting index")
@@ -142,56 +121,19 @@ func IndexDocument(ctx context.Context, db *sql.DB, doc SearchableEntity) error 
 	return nil
 }
 
-func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index) (int, error) {
+func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index, ents ...types.SearchableEntity) (int, error) {
 	batch := idx.NewBatch()
-	rows, err := db.QueryContext(ctx, queryUnindexedUrls, batchSize)
-	if err != nil {
-		return 0, errors.Wrap(err, "error querying unindexed urls")
-	}
-	defer rows.Close()
-
-	// Put docs into a slice so that we can iterate over them to mark them as
-	// indexed. Otherwies we could add them to the batch directly.
-	var docs []SearchableEntity
-
-	for rows.Next() {
-		var ent types.UrlDbEntity
-		var ts int64
-		err := rows.Scan(&ent.UrlMd5, &ent.Url, &ent.Title, &ent.Description, &ts)
-		if err != nil {
-			return 0, errors.Wrap(err, "error scanning row")
-		}
-
-		// @note last visit time can be zero, indicating unknown visit time. This
-		// will happen if importing from browserparrot/persistory because the visits
-		// table had a bug
-		if ts > 0 {
-			t := time.Unix(ts, 0)
-			ent.LastVisit = &t
-		}
-
-		doc := SearchableEntity{
-			Id:          ent.UrlMd5,
-			Url:         ent.Url,
-			Title:       ent.Title,
-			Description: ent.Description,
-			LastVisit:   ent.LastVisit,
-		}
-
-		docs = append(docs, doc)
+	for _, ent := range ents {
+		batch.Index(ent.Id, ent)
 	}
 
-	for _, doc := range docs {
-		batch.Index(doc.Id, doc)
-	}
-
-	err = idx.Batch(batch)
+	err := idx.Batch(batch)
 	if err != nil {
 		return 0, errors.Wrap(err, "batch error")
 	}
 
 	// Mark docs as indexed so that we don't re-index them
-	for _, doc := range docs {
+	for _, doc := range ents {
 		t := time.Now()
 		meta := &types.UrlMetaRow{
 			Url:       doc.Url,
@@ -205,7 +147,65 @@ func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index) (int, error) {
 		}
 	}
 
-	return len(docs), nil
+	return len(ents), nil
+}
+
+func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, error) {
+	const qry = `
+		SELECT
+			u.url_md5,
+			url,
+			title,
+			description,
+			last_visit
+		FROM
+			urls u
+			LEFT OUTER JOIN urls_meta um ON u.url_md5 = um.url_md5
+		WHERE
+			um.indexed_at IS NULL
+		ORDER BY 
+			last_visit DESC
+		LIMIT ?;
+	`
+
+	rows, err := db.QueryContext(ctx, qry, batchSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "error querying unindexed urls")
+	}
+	defer rows.Close()
+
+	// Put docs into a slice so that we can iterate over them to mark them as
+	// indexed. Otherwies we could add them to the batch directly.
+	var docs []types.SearchableEntity
+
+	for rows.Next() {
+		var ent types.UrlDbEntity
+		var ts int64
+		err := rows.Scan(&ent.UrlMd5, &ent.Url, &ent.Title, &ent.Description, &ts)
+		if err != nil {
+			return nil, errors.Wrap(err, "error scanning row")
+		}
+
+		// @note last visit time can be zero, indicating unknown visit time. This
+		// will happen if importing from browserparrot/persistory because the visits
+		// table had a bug
+		if ts > 0 {
+			t := time.Unix(ts, 0)
+			ent.LastVisit = &t
+		}
+
+		doc := types.SearchableEntity{
+			Id:          ent.UrlMd5,
+			Url:         ent.Url,
+			Title:       ent.Title,
+			Description: ent.Description,
+			LastVisit:   ent.LastVisit,
+		}
+
+		docs = append(docs, doc)
+	}
+
+	return docs, nil
 }
 
 // Reindex documents that have already been indexed. This does not remove

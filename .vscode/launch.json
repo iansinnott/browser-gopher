@@ -38,6 +38,18 @@
       ]
     },
     {
+      "name": "populate",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}",
+      "args": [
+        "populate",
+        "--browser=vivaldi",
+        "--fulltext"
+      ]
+    },
+    {
       "name": "dev full-text",
       "type": "go",
       "request": "launch",

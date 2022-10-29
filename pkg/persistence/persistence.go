@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -48,12 +49,19 @@ CREATE INDEX IF NOT EXISTS visits_url_md5 ON visits(url_md5);
 
 CREATE TABLE IF NOT EXISTS "documents" (
   "document_md5" VARCHAR(32) PRIMARY KEY NOT NULL,
-  "url_md5" VARCHAR(32) UNIQUE NOT NULL REFERENCES urls(url_md5),
-	"markdown_path" TEXT,
+	"body" TEXT,
 	"status_code" INTEGER,
   "accessed_at" INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS "url_document_edges" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "url_md5" VARCHAR(32) UNIQUE NOT NULL REFERENCES urls(url_md5),
+  "document_md5" VARCHAR(32) NOT NULL REFERENCES documents(document_md5)
+);
 `
+
+var writeLock sync.Mutex
 
 // Open a connection to the database. Calling code should close the connection when done.
 // @note It is assumed that the database is already initialized. Thus this may be less useful than `InitDB`
@@ -109,8 +117,9 @@ LIMIT 1;
 
 func InsertUrl(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	const qry = `
-		INSERT OR REPLACE INTO urls(url_md5, url, title, description, last_visit)
-			VALUES(?, ?, ?, ?, ?);
+		INSERT OR REPLACE INTO 
+			urls(url_md5, url, title, description, last_visit)
+				VALUES(?, ?, ?, ?, ?);
 	`
 	var lastVisit int64
 	if row.LastVisit != nil {
@@ -124,8 +133,9 @@ func InsertUrl(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 
 func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error {
 	const qry = `
-		INSERT OR REPLACE INTO urls_meta(url_md5, indexed_at)
-			VALUES(?, ?);
+		INSERT OR REPLACE INTO 
+			urls_meta(url_md5, indexed_at)
+				VALUES(?, ?);
 	`
 	md5 := util.HashMd5String(row.Url)
 	var indexed_at int64
@@ -139,24 +149,53 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error
 }
 
 func InsertDocument(ctx context.Context, db *sql.DB, row *types.DocumentRow) error {
-	const qry = `
-		INSERT OR REPLACE INTO documents(document_md5, url_md5, markdown_path, status_code, accessed_at)
-			VALUES(?, ?, ?, ?, ?);
-	`
+	writeLock.Lock()
+	defer writeLock.Unlock()
+
 	var accessed_at int64
+	var err error
 
 	if row.AccessedAt != nil {
 		accessed_at = row.AccessedAt.Unix()
 	}
 
-	_, err := db.ExecContext(ctx, qry, row.DocumentMd5, row.UrlMd5, row.MarkdownPath, row.StatusCode, accessed_at)
-	return err
+	// @note these are separate transactions because of how Exec handles
+	// positional args with multiple statements. There is no way to pass different
+	// args to subsequent statements, the arg list order is reset for each one.
+	// I.e. the first positional arg is the first in _all_ statements.
+
+	_, err = db.ExecContext(ctx,
+		`
+		INSERT OR REPLACE INTO 
+			documents(document_md5, status_code, accessed_at, body)
+				VALUES(?, ?, ?, ?);
+		`,
+		row.DocumentMd5, row.StatusCode, accessed_at, row.Body,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.ExecContext(ctx,
+		`
+		INSERT OR IGNORE INTO
+			url_document_edges(url_md5, document_md5)
+				VALUES(?, ?);
+		`,
+		row.UrlMd5, row.DocumentMd5,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func InsertVisit(ctx context.Context, db *sql.DB, row *types.VisitRow) error {
 	const qry = `
-		INSERT OR IGNORE INTO visits(url_md5, visit_time, extractor_name)
-			VALUES(?, ?, ?);
+		INSERT OR IGNORE INTO 
+			visits(url_md5, visit_time, extractor_name)
+				VALUES(?, ?, ?);
 	`
 	md5 := util.HashMd5String(row.Url)
 
@@ -172,6 +211,8 @@ func CountUrlsWhere(ctx context.Context, db *sql.DB, where string, args ...inter
 		FROM
 			urls
 			LEFT OUTER JOIN urls_meta ON urls.url_md5 = urls_meta.url_md5
+			LEFT OUTER JOIN url_document_edges ON urls.url_md5 = url_document_edges.url_md5
+			LEFT OUTER JOIN documents ON url_document_edges.document_md5 = documents.document_md5
 		WHERE %s;
 	`
 	qry = fmt.Sprintf(qry, where)

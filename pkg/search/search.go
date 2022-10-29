@@ -11,6 +11,12 @@ type URLQueryResult struct {
 	Meta  *bleve.SearchResult
 }
 
+type SearchResult struct {
+	Urls  []types.SearchableEntity
+	Count uint
+	Meta  *bleve.SearchResult
+}
+
 type SearchProvider interface {
 	SearchUrls(query string) (*URLQueryResult, error)
 }
