@@ -59,6 +59,30 @@ CREATE TABLE IF NOT EXISTS "url_document_edges" (
   "url_md5" VARCHAR(32) UNIQUE NOT NULL REFERENCES urls(url_md5),
   "document_md5" VARCHAR(32) NOT NULL REFERENCES documents(document_md5)
 );
+
+CREATE VIRTUAL TABLE IF NOT EXISTS "search" USING fts5(
+	url,
+	title,
+	description,
+	body,
+	tokenize = 'porter unicode61 remove_diacritics 1'
+);
+
+CREATE TRIGGER IF NOT EXISTS search_insert AFTER INSERT ON documents
+BEGIN
+	INSERT INTO search (rowid, url, title, description, body) VALUES (new.rowid, new.url, new.title, new.description, new.body);
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_delete AFTER DELETE ON documents
+BEGIN
+	INSERT INTO search (search, rowid, url, title, description, body) VALUES ('delete', old.rowid, old.url, old.title, old.description, old.body);
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_update AFTER UPDATE ON documents
+BEGIN
+	INSERT INTO search (search, rowid, url, title, description, body) VALUES ('delete', old.rowid, old.url, old.title, old.description, old.body);
+	INSERT INTO search (rowid, url, title, description, body) VALUES (new.rowid, new.url, new.title, new.description, new.body);
+END;
 `
 
 var writeLock sync.Mutex
