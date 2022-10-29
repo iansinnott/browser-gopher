@@ -8,6 +8,7 @@ import (
 	bs "github.com/blevesearch/bleve/v2/search"
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/search"
+	"github.com/iansinnott/browser-gopher/pkg/tui"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -64,7 +65,7 @@ var devBleveCmd = &cobra.Command{
 
 					for _, locs := range locations {
 						for _, loc := range locs {
-							s = highlightLocation(loc, s)
+							s = tui.HighlightLocation(loc, s)
 						}
 					}
 
