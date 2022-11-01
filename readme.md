@@ -37,7 +37,7 @@ make build
 
 ## Project status
 
-Just started. Currently it extracts and stores all your browsing history in SQLite. You can search over all your browsing history, but full-text is not yet extracted.
+Just started. Currently it extracts and stores all your browsing history in SQLite. You can search over all your browsing history, but full-text is not yet extracted (it's in-progress on the [feat/fts branch](https://github.com/iansinnott/browser-gopher/tree/feat/fts)).
 
 ## Supported browsers
 
