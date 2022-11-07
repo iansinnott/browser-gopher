@@ -12,6 +12,7 @@ import (
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	ex "github.com/iansinnott/browser-gopher/pkg/extractors"
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/populate"
 	"github.com/pkg/errors"
@@ -94,13 +95,16 @@ var populateCmd = &cobra.Command{
 
 		if len(errs) > 0 {
 			for _, e := range errs {
-				log.Println(e)
+				logging.Warn().Println("browser failure:", e)
 			}
-			err = fmt.Errorf("one or more browsers failed")
+
+			if len(errs) == len(extractors) {
+				err = fmt.Errorf("all browsers failed to populate. exiting")
+			}
 		}
 
 		if err != nil {
-			fmt.Println("Encountered an error", err)
+			logging.Error().Println("Encountered an error", err)
 			os.Exit(1)
 		}
 

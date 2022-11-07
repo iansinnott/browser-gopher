@@ -7,6 +7,8 @@ import (
 )
 
 var debugLogger *log.Logger = log.New(os.Stderr, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+var warnLogger *log.Logger = log.New(os.Stderr, "WARN: ", log.Ldate|log.Ltime)
+var errLogger *log.Logger = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 var quietLogger *log.Logger = log.New(io.Discard, "", 0)
 
 const DEBUG = 1
@@ -28,4 +30,12 @@ func Debug() *log.Logger {
 	}
 
 	return debugLogger
+}
+
+func Warn() *log.Logger {
+	return warnLogger
+}
+
+func Error() *log.Logger {
+	return errLogger
 }

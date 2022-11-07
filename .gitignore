@@ -2,3 +2,4 @@ browser-gopher
 index.bleve
 .envrc
 dist
+tmp
