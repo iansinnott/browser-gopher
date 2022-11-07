@@ -149,11 +149,15 @@ func BuildExtractorList() ([]types.Extractor, error) {
 		},
 	}
 
+	// @note it is assumed that the same browser is not installed at multiple
+	// paths. I.e. the paths are mutually exclusive. the first path to be found
+	// will be used.
 	for _, browser := range candidateBrowsers {
+		found := false
+
 		for _, p := range browser.paths {
 			_, err := os.Stat(p)
 			if errors.Is(err, os.ErrNotExist) {
-				logging.Debug().Println("["+browser.name+"] not found. skipping:", p)
 				continue
 			}
 
@@ -163,7 +167,12 @@ func BuildExtractorList() ([]types.Extractor, error) {
 			}
 			for _, dbPath := range dbs {
 				result = append(result, browser.createExtractor(browser.name, dbPath))
+				found = true
 			}
+		}
+
+		if !found {
+			logging.Debug().Println("[" + browser.name + "] not found. skipping:")
 		}
 	}
 

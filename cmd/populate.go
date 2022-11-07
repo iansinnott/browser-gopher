@@ -128,7 +128,7 @@ var populateCmd = &cobra.Command{
 						continue
 					}
 
-					fmt.Println("encountered an error with fulltext", err)
+					logging.Error().Printf("could not populate fulltext: %v\n", err)
 					os.Exit(1)
 				}
 
@@ -144,7 +144,7 @@ var populateCmd = &cobra.Command{
 			t := time.Now()
 			n, err := populate.BuildIndex(cmd.Context(), dbConn)
 			if err != nil {
-				fmt.Println("encountered an error building the search index", err)
+				logging.Error().Printf("building the search index: %v\n", err)
 				os.Exit(1)
 			}
 			log.Printf("Indexed %d records in %v\n", n, time.Since(t))

@@ -51,7 +51,6 @@ func Execute() {
 	debug := os.Getenv("DEBUG")
 	if debug != "" && debug != "0" && debug != "false" {
 		logging.SetLogLevel(logging.DEBUG)
-		logging.Debug().Println("running in debug mode")
 	}
 
 	err := rootCmd.Execute()
