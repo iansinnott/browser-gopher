@@ -61,27 +61,88 @@ CREATE TABLE IF NOT EXISTS "url_document_edges" (
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS "search" USING fts5(
+	url_md5 UNINDEXED,
+	body_md5 UNINDEXED,
 	url,
 	title,
 	description,
 	body,
-	tokenize = 'porter unicode61 remove_diacritics 1'
+	tokenize = 'porter unicode61 remove_diacritics 2'
 );
 
-CREATE TRIGGER IF NOT EXISTS search_insert AFTER INSERT ON documents
+CREATE VIEW IF NOT EXISTS "searchable_data" AS
+SELECT
+	urls.rowid as url_rowid,
+	urls.url_md5,
+	urls.url,
+	urls.title,
+	urls.description,
+	documents.document_md5,
+	documents.body
+FROM
+	urls
+	LEFT OUTER JOIN url_document_edges ON urls.url_md5 = url_document_edges.url_md5
+	LEFT OUTER JOIN documents ON url_document_edges.document_md5 = documents.document_md5;
+
+CREATE TRIGGER IF NOT EXISTS search_insert_urls AFTER INSERT ON urls
 BEGIN
-	INSERT INTO search (rowid, url, title, description, body) VALUES (new.rowid, new.url, new.title, new.description, new.body);
+	INSERT INTO search (rowid, url, title, description) VALUES (new.rowid, new.url, new.title, new.description);
 END;
 
-CREATE TRIGGER IF NOT EXISTS search_delete AFTER DELETE ON documents
+CREATE TRIGGER IF NOT EXISTS search_delete_urls AFTER DELETE ON urls
 BEGIN
-	INSERT INTO search (search, rowid, url, title, description, body) VALUES ('delete', old.rowid, old.url, old.title, old.description, old.body);
+	INSERT INTO search (search, rowid, url, title, description) VALUES ('delete', old.rowid, old.url, old.title, old.description);
 END;
 
-CREATE TRIGGER IF NOT EXISTS search_update AFTER UPDATE ON documents
+CREATE TRIGGER IF NOT EXISTS search_update_urls AFTER UPDATE ON urls
 BEGIN
-	INSERT INTO search (search, rowid, url, title, description, body) VALUES ('delete', old.rowid, old.url, old.title, old.description, old.body);
-	INSERT INTO search (rowid, url, title, description, body) VALUES (new.rowid, new.url, new.title, new.description, new.body);
+	INSERT INTO search (search, rowid, url, title, description) VALUES ('delete', old.rowid, old.url, old.title, old.description);
+	INSERT INTO search (rowid, url, title, description) VALUES (new.rowid, new.url, new.title, new.description);
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_insert_document AFTER INSERT ON url_document_edges
+BEGIN
+ INSERT
+		INTO "search" (rowid, url_md5, body_md5, url, title, description, body)
+		SELECT
+			url_rowid, url_md5, document_md5, url, title, description, body
+		FROM
+			searchable_data
+		WHERE
+			url_md5 = new.url_md5 AND document_md5 = new.document_md5;
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_delete_document AFTER DELETE ON url_document_edges
+BEGIN
+	INSERT
+		INTO "search" (search, rowid, url_md5, body_md5, url, title, description, body)
+		SELECT
+			'delete', rowid, url_md5, document_md5, url, title, description, body
+		FROM
+			searchable_data
+		WHERE
+			url_md5 = new.url_md5 AND document_md5 = new.document_md5;
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_update_document AFTER UPDATE ON url_document_edges
+BEGIN
+	INSERT
+		INTO "search" (search, rowid, url_md5, body_md5, url, title, description, body)
+		SELECT
+			'delete', rowid, url_md5, document_md5, url, title, description, body
+		FROM
+			searchable_data
+		WHERE
+			url_md5 = new.url_md5;
+
+ INSERT
+		INTO "search" (rowid, url_md5, body_md5, url, title, description, body)
+		SELECT
+			url_rowid, url_md5, document_md5, url, title, description, body
+		FROM
+			searchable_data
+		WHERE
+			url_md5 = new.url_md5 AND document_md5 = new.document_md5;
 END;
 `
 

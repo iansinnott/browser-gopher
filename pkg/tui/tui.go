@@ -38,25 +38,27 @@ func HighlightLocation(loc *bs.Location, text string) string {
 
 const UNTITLED = "<UNTITLED>"
 
-type item struct {
-	title, desc, query string
-	date               *time.Time
+type ListItem struct {
+	// @note ItemTitle is thus named so as not to conflict with the Title() method, which is used by bubbletea
+	ItemTitle, Desc, query string
+	Body                   *string
+	Date                   *time.Time
 }
 
-func (i item) Title() string {
+func (i ListItem) Title() string {
 	var sb strings.Builder
 
-	if i.date != nil {
-		sb.WriteString(i.date.Format(util.FormatDateOnly))
+	if i.Date != nil {
+		sb.WriteString(i.Date.Format(util.FormatDateOnly))
 		sb.WriteString(" ")
 	}
 
-	sb.WriteString(titleStyle.Render(i.title))
+	sb.WriteString(titleStyle.Render(i.ItemTitle))
 
 	return sb.String()
 }
-func (i item) Description() string { return urlStyle.Render(i.desc) }
-func (i item) FilterValue() string { return i.title + i.desc }
+func (i ListItem) Description() string { return urlStyle.Render(i.Desc) }
+func (i ListItem) FilterValue() string { return i.ItemTitle + i.Desc }
 
 // @todo Support other systems that don't have `open`
 // @todo should prob store a list of the `item` structs that have the URL rather than doing this string manipulation
@@ -74,6 +76,7 @@ type model struct {
 	list           list.Model
 	searchProvider search.SearchProvider
 	dataProvider   search.DataProvider
+	mapItem        ItemMapping
 }
 
 func (m model) Init() tea.Cmd {
@@ -114,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				fmt.Println("search error", err)
 				os.Exit(1)
 			}
-			items := ResultToItems(result, query)
+			items := ResultToItems(result, query, m.mapItem)
 			listCmd := m.list.SetItems(items)
 			return m, tea.Batch(inputCmd, listCmd)
 		}
@@ -132,6 +135,12 @@ func (m model) View() string {
 	return docStyle.Render(m.input.View()) + "\n" + listView
 }
 
+type ItemMapping func(x ListItem) list.Item
+
+var identityMapping ItemMapping = func(x ListItem) list.Item {
+	return x
+}
+
 // @todo Rather than taking providers this should probably take a search
 // function that can handle customized querying. I.e. if I want to return only
 // full-text documents with this current setup i would need to create a new
@@ -141,9 +150,17 @@ func GetSearchProgram(
 	initialQuery string,
 	dataProvider search.DataProvider,
 	searchProvider search.SearchProvider,
+	mapItem *func(x ListItem) list.Item,
 ) (*tea.Program, error) {
 	var err error
 	var result *search.SearchResult
+
+	var mapping ItemMapping
+	if mapItem != nil {
+		mapping = ItemMapping(*mapItem)
+	} else {
+		mapping = identityMapping
+	}
 
 	if initialQuery == "" {
 		result, err = dataProvider.RecentUrls(100)
@@ -155,7 +172,7 @@ func GetSearchProgram(
 		return nil, errors.Wrap(err, "failed to get initial search results")
 	}
 
-	items := ResultToItems(result, "")
+	items := ResultToItems(result, "", mapping)
 
 	// Input el
 	input := textinput.New()
@@ -177,14 +194,15 @@ func GetSearchProgram(
 		input:          input,
 		searchProvider: searchProvider,
 		dataProvider:   dataProvider,
+		mapItem:        mapping,
 	}
 
 	return tea.NewProgram(m, tea.WithAltScreen()), nil
 }
 
-func ResultToItems(result *search.SearchResult, query string) []list.Item {
+func ResultToItems(result *search.SearchResult, query string, mapItem ItemMapping) []list.Item {
 	if result == nil || len(result.Urls) == 0 {
-		return []list.Item{item{title: "No results found"}}
+		return []list.Item{ListItem{ItemTitle: "No results found"}}
 	}
 
 	urls := result.Urls
@@ -216,13 +234,15 @@ func ResultToItems(result *search.SearchResult, query string) []list.Item {
 			}
 		}
 
-		items = append(items, item{
-			title: displayTitle,
-			desc:  displayUrl,
-			date:  u.LastVisit,
-			query: query,
-		})
+		items = append(items, mapItem(ListItem{
+			ItemTitle: displayTitle,
+			Desc:      displayUrl,
+			Date:      u.LastVisit,
+			query:     query,
+			Body:      u.Body,
+		}))
 	}
+
 	return items
 }
 

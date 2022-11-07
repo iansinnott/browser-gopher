@@ -174,8 +174,6 @@ func (p FullTextSearchProvider) SearchUrls(query string) (*SearchResult, error) 
 	}
 	defer conn.Close()
 
-	query = "%" + query + "%"
-
 	var count uint
 	row := conn.QueryRowContext(p.ctx, `
 SELECT

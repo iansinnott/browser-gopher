@@ -52,7 +52,7 @@ var searchCmd = &cobra.Command{
 			return
 		}
 
-		p, err := tui.GetSearchProgram(cmd.Context(), initialQuery, dataProvider, searchProvider)
+		p, err := tui.GetSearchProgram(cmd.Context(), initialQuery, dataProvider, searchProvider, nil)
 		if err != nil {
 			fmt.Println("could not get search program:", err)
 			os.Exit(1)
@@ -66,6 +66,6 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(searchCmd)
 	searchCmd.Flags().Bool("no-interactive", false, "disable interactive terminal interface. useful for scripting")
+	rootCmd.AddCommand(searchCmd)
 }
