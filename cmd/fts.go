@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iansinnott/browser-gopher/pkg/config"
+	"github.com/iansinnott/browser-gopher/pkg/search"
 	"github.com/iansinnott/browser-gopher/pkg/tui"
 	"github.com/spf13/cobra"
 )
@@ -32,8 +34,11 @@ have been indexed.
 		// 	os.Exit(1)
 		// }
 
+		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
+		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
+
 		fmt.Println("todo")
-		p, err := tui.GetSearchProgram(cmd.Context(), initialQuery)
+		p, err := tui.GetSearchProgram(cmd.Context(), initialQuery, dataProvider, searchProvider)
 		if err != nil {
 			fmt.Println("could not get search program:", err)
 			os.Exit(1)

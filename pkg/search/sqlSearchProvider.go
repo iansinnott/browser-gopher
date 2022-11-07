@@ -8,6 +8,7 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 )
 
 type SqlSearchProvider struct {
@@ -19,7 +20,7 @@ func NewSqlSearchProvider(ctx context.Context, conf *config.AppConfig) SqlSearch
 	return SqlSearchProvider{ctx: ctx, conf: conf}
 }
 
-func (p SqlSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
+func (p SqlSearchProvider) SearchUrls(query string) (*SearchResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
@@ -86,10 +87,14 @@ LIMIT 100;
 		xs = append(xs, x)
 	}
 
-	return &URLQueryResult{Urls: xs, Count: count}, nil
+	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
+		return types.UrlDbEntityToSearchableEntity(x)
+	})
+
+	return &SearchResult{Urls: searchResult, Count: count}, nil
 }
 
-func (p SqlSearchProvider) RecentUrls(limit uint) (*URLQueryResult, error) {
+func (p SqlSearchProvider) RecentUrls(limit uint) (*SearchResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
@@ -146,10 +151,23 @@ LIMIT ?;
 		xs = append(xs, x)
 	}
 
-	return &URLQueryResult{Urls: xs, Count: count}, nil
+	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
+		return types.UrlDbEntityToSearchableEntity(x)
+	})
+
+	return &SearchResult{Urls: searchResult, Count: count}, nil
 }
 
-func (p SqlSearchProvider) GetFullTextUrls(query string) (*SearchResult, error) {
+type FullTextSearchProvider struct {
+	ctx  context.Context
+	conf *config.AppConfig
+}
+
+func NewFullTextSearchProvider(ctx context.Context, conf *config.AppConfig) FullTextSearchProvider {
+	return FullTextSearchProvider{ctx: ctx, conf: conf}
+}
+
+func (p FullTextSearchProvider) SearchUrls(query string) (*SearchResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
@@ -163,11 +181,11 @@ func (p SqlSearchProvider) GetFullTextUrls(query string) (*SearchResult, error) 
 SELECT
 	COUNT(*)
 FROM
-	urls u
-	INNER JOIN url_document_edges edge ON u.url_md5 = edge.url_md5
-	INNER JOIN documents d ON edge.document_id = d.id
+  search
 WHERE
-	d.body LIKE ?;
+  search MATCH ?
+ORDER BY 
+	"rank";
 	`, query)
 	if row.Err() != nil {
 		return nil, errors.Wrap(row.Err(), "row count error")
@@ -179,21 +197,18 @@ WHERE
 
 	rows, err := conn.QueryContext(p.ctx, `
 SELECT
-	u.url_md5,
-	u.url,
-	u.title,
-	u.description,
-	u.last_visit,
-	d.body
+	url_md5,
+  url,
+  title,
+  snippet(search, 5, '<mark>', '</mark>', '', 32) as 'body'
 FROM
-	urls u
-	INNER JOIN url_document_edges edge ON u.url_md5 = edge.url_md5
-	INNER JOIN documents d ON edge.document_id = d.id
+  search
 WHERE
-	d.body LIKE ?;
-ORDER BY
-	u.last_visit DESC
-LIMIT 100;
+  search MATCH ?
+ORDER BY 
+	"rank"
+LIMIT 
+	100;
 	`, query)
 
 	if err != nil {
@@ -207,13 +222,10 @@ LIMIT 100;
 
 	for rows.Next() {
 		var x types.SearchableEntity
-		var ts int64
-		err := rows.Scan(&x.Id, &x.Url, &x.Title, &x.Description, &ts, &x.Body)
+		err := rows.Scan(&x.Id, &x.Url, &x.Title, &x.Body)
 		if err != nil {
 			return nil, errors.Wrap(err, "row error")
 		}
-		t := time.Unix(ts, 0)
-		x.LastVisit = &t
 		xs = append(xs, x)
 	}
 

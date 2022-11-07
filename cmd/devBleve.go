@@ -49,7 +49,7 @@ var devBleveCmd = &cobra.Command{
 
 		for _, url := range urls.Urls {
 			hit, ok := lo.Find(urls.Meta.Hits, func(x *bs.DocumentMatch) bool {
-				return x.ID == url.UrlMd5
+				return x.ID == url.Id
 			})
 			if ok {
 

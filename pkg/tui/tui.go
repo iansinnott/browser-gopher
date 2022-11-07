@@ -14,7 +14,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/search"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/pkg/errors"
@@ -101,7 +100,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		default:
 			var inputCmd tea.Cmd
-			var result *search.URLQueryResult
+			var result *search.SearchResult
 			var err error
 			m.input, inputCmd = m.input.Update(msg)
 			query := m.input.Value()
@@ -133,12 +132,18 @@ func (m model) View() string {
 	return docStyle.Render(m.input.View()) + "\n" + listView
 }
 
-func GetSearchProgram(ctx context.Context, initialQuery string) (*tea.Program, error) {
-	dataProvider := search.NewSqlSearchProvider(ctx, config.Config)
-	searchProvider := search.NewBleveSearchProvider(ctx, config.Config)
-
+// @todo Rather than taking providers this should probably take a search
+// function that can handle customized querying. I.e. if I want to return only
+// full-text documents with this current setup i would need to create a new
+// SearchProvider that returns full-text docs for the SearchUrls call
+func GetSearchProgram(
+	ctx context.Context,
+	initialQuery string,
+	dataProvider search.DataProvider,
+	searchProvider search.SearchProvider,
+) (*tea.Program, error) {
 	var err error
-	var result *search.URLQueryResult
+	var result *search.SearchResult
 
 	if initialQuery == "" {
 		result, err = dataProvider.RecentUrls(100)
@@ -177,7 +182,7 @@ func GetSearchProgram(ctx context.Context, initialQuery string) (*tea.Program, e
 	return tea.NewProgram(m, tea.WithAltScreen()), nil
 }
 
-func ResultToItems(result *search.URLQueryResult, query string) []list.Item {
+func ResultToItems(result *search.SearchResult, query string) []list.Item {
 	if result == nil || len(result.Urls) == 0 {
 		return []list.Item{item{title: "No results found"}}
 	}
@@ -195,7 +200,7 @@ func ResultToItems(result *search.URLQueryResult, query string) []list.Item {
 		// Highlighting
 		if result.Meta != nil {
 			hit, ok := lo.Find(result.Meta.Hits, func(x *bs.DocumentMatch) bool {
-				return x.ID == u.UrlMd5
+				return x.ID == u.Id
 			})
 
 			if ok {

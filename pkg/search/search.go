@@ -18,10 +18,10 @@ type SearchResult struct {
 }
 
 type SearchProvider interface {
-	SearchUrls(query string) (*URLQueryResult, error)
+	SearchUrls(query string) (*SearchResult, error)
 }
 
 type DataProvider interface {
 	SearchProvider
-	RecentUrls(limit uint) (*URLQueryResult, error)
+	RecentUrls(limit uint) (*SearchResult, error)
 }

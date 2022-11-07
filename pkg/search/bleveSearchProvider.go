@@ -7,6 +7,8 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/populate"
+	"github.com/iansinnott/browser-gopher/pkg/types"
+	"github.com/samber/lo"
 )
 
 type BleveSearchProvider struct {
@@ -33,7 +35,7 @@ func (p BleveSearchProvider) SearchBleve(query string) (*bleve.SearchResult, err
 	return (*idx).Search(req)
 }
 
-func (p BleveSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
+func (p BleveSearchProvider) SearchUrls(query string) (*SearchResult, error) {
 	result, err := p.SearchBleve(query)
 	if err != nil {
 		return nil, err
@@ -55,5 +57,9 @@ func (p BleveSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
 		return nil, err
 	}
 
-	return &URLQueryResult{Urls: xs, Count: uint(result.Total), Meta: result}, err
+	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
+		return types.UrlDbEntityToSearchableEntity(x)
+	})
+
+	return &SearchResult{Urls: searchResult, Count: uint(result.Total), Meta: result}, err
 }

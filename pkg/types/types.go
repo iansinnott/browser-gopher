@@ -67,4 +67,17 @@ type SearchableEntity struct {
 	Description *string    `json:"description"`
 	LastVisit   *time.Time `json:"last_visit"`
 	Body        *string    `json:"body"`
+	BodyMd5     *string    `json:"body_md5"`
+}
+
+func UrlDbEntityToSearchableEntity(x UrlDbEntity) SearchableEntity {
+	return SearchableEntity{
+		Id:          x.UrlMd5,
+		Url:         x.Url,
+		Title:       x.Title,
+		Description: x.Description,
+		LastVisit:   x.LastVisit,
+		Body:        nil,
+		BodyMd5:     nil,
+	}
 }
