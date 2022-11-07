@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/iansinnott/browser-gopher/pkg/config"
-	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/search"
 	"github.com/iansinnott/browser-gopher/pkg/tui"
 	"github.com/iansinnott/browser-gopher/pkg/util"
@@ -54,13 +53,16 @@ have been indexed.
 			}
 
 			for _, x := range util.ReverseSlice(result.Urls) {
-				var displayTitle string
+				var displayTitle, displayBody string
 				if x.Title != nil {
 					displayTitle = *x.Title
 				} else {
 					displayTitle = "<UNTITLED>"
 				}
-				fmt.Printf("%v %v\n", displayTitle, x.Url)
+				if x.Body != nil {
+					displayBody = *x.Body
+				}
+				fmt.Printf("%v %v %v\n", displayTitle, x.Url, displayBody)
 			}
 
 			fmt.Printf("Found %d results for \"%s\"\n", result.Count, initialQuery)
@@ -69,8 +71,7 @@ have been indexed.
 		}
 
 		mapper := func(x tui.ListItem) list.Item {
-			if x.Body == nil {
-				logging.Debug().Printf("Mapping item %+v", x)
+			if x.Body != nil {
 				x.ItemTitle = *x.Body
 			}
 			return list.Item(x)

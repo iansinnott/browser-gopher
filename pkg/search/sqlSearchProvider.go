@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
@@ -193,21 +194,32 @@ ORDER BY
 		return nil, errors.Wrap(err, "row count error")
 	}
 
-	rows, err := conn.QueryContext(p.ctx, `
-SELECT
-	url_md5,
-  url,
-  title,
-  snippet(search, 5, '<mark>', '</mark>', '', 32) as 'body'
-FROM
-  search
-WHERE
-  search MATCH ?
-ORDER BY 
-	"rank"
-LIMIT 
-	100;
-	`, query)
+	// for now highlighting is done manually after the fact, but these matches
+	// could be used to add ascii color codes
+	matchOpen := ""
+	matchClose := ""
+	sqlQry := fmt.Sprintf(`
+		SELECT
+			url_md5,
+			url,
+			title,
+			REPLACE(
+				snippet(search, 5, '%s', '%s', '', 32),
+				CHAR(10),
+				''
+			) AS 'body'
+		FROM
+			search
+		WHERE
+			search MATCH ?
+		ORDER BY 
+			"rank"
+		LIMIT 
+			100;`,
+		matchOpen,
+		matchClose,
+	)
+	rows, err := conn.QueryContext(p.ctx, sqlQry, query)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "query error")
