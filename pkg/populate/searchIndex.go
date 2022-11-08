@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/pkg/errors"
@@ -27,8 +28,8 @@ func GetIndex() (*bleve.Index, error) {
 		err error
 	)
 
-	// if index.bleve exists on disk then open it, otherwise create a new index
-	_, err = os.Stat("index.bleve")
+	// if bleve index exists on disk then open it, otherwise create a new index
+	_, err = os.Stat(config.Config.SearchIndexPath)
 
 	if os.IsNotExist(err) {
 		lastVisitMapping := bleve.NewDateTimeFieldMapping()
@@ -37,12 +38,12 @@ func GetIndex() (*bleve.Index, error) {
 
 		mapping := bleve.NewIndexMapping()
 		mapping.DefaultMapping = docMapping
-		idx, err = bleve.New("index.bleve", mapping)
+		idx, err = bleve.New(config.Config.SearchIndexPath, mapping)
 		if err != nil {
 			err = errors.Wrap(err, "error creating new index")
 		}
 	} else {
-		idx, err = bleve.Open("index.bleve")
+		idx, err = bleve.Open(config.Config.SearchIndexPath)
 		if err != nil {
 			err = errors.Wrap(err, "error opening index")
 		}

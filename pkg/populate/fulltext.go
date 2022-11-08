@@ -45,7 +45,7 @@ WHERE
   edge.url_md5 IS NULL;
 `
 
-const scrapeBatchSize = 100
+const scrapeBatchSize = 10
 
 func PopulateFulltext(ctx context.Context, db *sql.DB) (int, error) {
 	indexedCount := 0
