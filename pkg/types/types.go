@@ -30,13 +30,16 @@ type DocumentRow struct {
 	Body        *string    // Fulltext of the webpage as markdown
 }
 
-// The URL as represented in the db.
+// Initially this was a URL row representation but it was later augmented with
+// body, which is only available via join.
 type UrlDbEntity struct {
 	UrlMd5      string
 	Url         string
-	Title       *string    // Nullable
-	Description *string    // Nullable
-	LastVisit   *time.Time // Nullable
+	Title       *string
+	Description *string
+	LastVisit   *time.Time
+	Body        *string
+	BodyMd5     *string
 }
 
 type VisitRow struct {
@@ -77,7 +80,7 @@ func UrlDbEntityToSearchableEntity(x UrlDbEntity) SearchableEntity {
 		Title:       x.Title,
 		Description: x.Description,
 		LastVisit:   x.LastVisit,
-		Body:        nil,
-		BodyMd5:     nil,
+		Body:        x.Body,
+		BodyMd5:     x.BodyMd5,
 	}
 }

@@ -5,13 +5,17 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
+	_ "github.com/blevesearch/bleve/v2/analysis/analyzer/simple"
+	_ "github.com/blevesearch/bleve/v2/analysis/lang/cjk"
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/pkg/errors"
+	stripmd "github.com/writeas/go-strip-markdown"
 )
 
 // reference the index so that it does't get opened multiple times (causes
@@ -32,9 +36,44 @@ func GetIndex() (*bleve.Index, error) {
 	_, err = os.Stat(config.Config.SearchIndexPath)
 
 	if os.IsNotExist(err) {
-		lastVisitMapping := bleve.NewDateTimeFieldMapping()
+		// start building up the doc mapping
 		docMapping := bleve.NewDocumentMapping()
+
+		// for md5s, which are used as id fields, do not index them. but we need them stored for retreival later
+		md5Mapping := bleve.NewTextFieldMapping()
+		md5Mapping.Store = true
+		md5Mapping.Index = false
+		docMapping.AddFieldMappingsAt("url_md5", md5Mapping)
+		docMapping.AddFieldMappingsAt("body_md5", md5Mapping)
+
+		// handle datetimes
+		lastVisitMapping := bleve.NewDateTimeFieldMapping()
 		docMapping.AddFieldMappingsAt("last_visit", lastVisitMapping)
+
+		urlMapping := bleve.NewTextFieldMapping()
+		urlMapping.Store = true
+		urlMapping.Index = true
+		// There is also 'web', supposedly: https://bleveanalysis.couchbase.com/analysis
+		urlMapping.Analyzer = "simple" // docs: https://blevesearch.com/docs/Analyzers/
+		docMapping.AddFieldMappingsAt("url", urlMapping)
+
+		// Text mapping uses CJK because it also supports latin script. The 'en' analyzer (or other language)
+		// might be more optimal for a specific language, but in the interest of supporting non-latin scripts
+		// we're using cjk. See: https://bleveanalysis.couchbase.com/analysis for how these analyzers differ.
+		// Have not tested with other non-spaced, non-latin languages (such as Thai).
+		textMapping := bleve.NewTextFieldMapping()
+		textMapping.Store = true
+		textMapping.Index = true
+		textMapping.Analyzer = "cjk"
+		docMapping.AddFieldMappingsAt("title", textMapping)
+		docMapping.AddFieldMappingsAt("description", textMapping)
+
+		// the document body will be stored in sqlite, so does not need to be stored here
+		bodyMapping := bleve.NewTextFieldMapping()
+		bodyMapping.Store = true // @todo We can have a smaller index by not storing this, but then we need to hit the db for found items to get the full body text.
+		bodyMapping.Index = true
+		textMapping.Analyzer = "cjk" // see textMapping for details
+		docMapping.AddFieldMappingsAt("body", bodyMapping)
 
 		mapping := bleve.NewIndexMapping()
 		mapping.DefaultMapping = docMapping
@@ -57,11 +96,15 @@ func GetIndex() (*bleve.Index, error) {
 // how many urls to index at a time
 const batchSize = 1000
 
-func BuildIndex(ctx context.Context, db *sql.DB) (int, error) {
+func BuildIndex(ctx context.Context, db *sql.DB, limit int) (int, error) {
 	indexedCount := 0
 	toIndexCount, err := persistence.CountUrlsWhere(ctx, db, "indexed_at IS NULL")
 	if err != nil {
 		return 0, errors.Wrap(err, "error getting count of urls to index")
+	}
+
+	if limit > 0 && limit < toIndexCount {
+		toIndexCount = limit
 	}
 
 	idx, err := GetIndex()
@@ -109,7 +152,7 @@ func IndexDocument(ctx context.Context, db *sql.DB, doc types.SearchableEntity) 
 	}
 
 	t := time.Now()
-	meta := &types.UrlMetaRow{
+	meta := types.UrlMetaRow{
 		Url:       doc.Url,
 		IndexedAt: &t,
 	}
@@ -133,19 +176,28 @@ func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index, ents ...types.
 		return 0, errors.Wrap(err, "batch error")
 	}
 
+	metas := []types.UrlMetaRow{}
+
 	// Mark docs as indexed so that we don't re-index them
 	for _, doc := range ents {
 		t := time.Now()
-		meta := &types.UrlMetaRow{
+		metas = append(metas, types.UrlMetaRow{
 			Url:       doc.Url,
 			IndexedAt: &t,
+		})
+	}
+
+	err = persistence.InsertUrlMeta(ctx, db, metas...)
+
+	if err != nil {
+		// check if SQLITE_BUSY error
+		if strings.Contains(err.Error(), "database is locked") {
+			fmt.Println("database is locked, retrying...")
+			time.Sleep(1000 * time.Millisecond)
+			return batchIndex(ctx, db, idx, ents...)
 		}
 
-		err := persistence.InsertUrlMeta(ctx, db, meta)
-
-		if err != nil {
-			return 0, errors.Wrap(err, "error marking doc as indexed")
-		}
+		return 0, errors.Wrap(err, "error marking doc as indexed")
 	}
 
 	return len(ents), nil
@@ -155,13 +207,17 @@ func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, er
 	const qry = `
 		SELECT
 			u.url_md5,
-			url,
-			title,
-			description,
-			last_visit
+			u.url,
+			u.title,
+			u.description,
+			u.last_visit,
+			doc.document_md5,
+			doc.body
 		FROM
 			urls u
 			LEFT OUTER JOIN urls_meta um ON u.url_md5 = um.url_md5
+			LEFT OUTER JOIN url_document_edges ON u.url_md5 = url_document_edges.url_md5
+			LEFT OUTER JOIN documents doc ON url_document_edges.document_md5 = doc.document_md5
 		WHERE
 			um.indexed_at IS NULL
 		ORDER BY 
@@ -182,7 +238,7 @@ func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, er
 	for rows.Next() {
 		var ent types.UrlDbEntity
 		var ts int64
-		err := rows.Scan(&ent.UrlMd5, &ent.Url, &ent.Title, &ent.Description, &ts)
+		err := rows.Scan(&ent.UrlMd5, &ent.Url, &ent.Title, &ent.Description, &ts, &ent.BodyMd5, &ent.Body)
 		if err != nil {
 			return nil, errors.Wrap(err, "error scanning row")
 		}
@@ -201,6 +257,13 @@ func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, er
 			Title:       ent.Title,
 			Description: ent.Description,
 			LastVisit:   ent.LastVisit,
+			Body:        ent.Body,
+			BodyMd5:     ent.BodyMd5,
+		}
+
+		if doc.Body != nil {
+			plaintext := stripmd.Strip(*ent.Body)
+			doc.Body = &plaintext
 		}
 
 		docs = append(docs, doc)
@@ -209,9 +272,7 @@ func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, er
 	return docs, nil
 }
 
-// Reindex documents that have already been indexed. This does not remove
-// anything from the index, but will overwrite documents that have been updated.
-func ReindexAll(ctx context.Context, db *sql.DB) (int, error) {
+func ReindexWithLimit(ctx context.Context, db *sql.DB, limit int) (int, error) {
 	var err error
 	qry := `
 		UPDATE
@@ -226,5 +287,11 @@ func ReindexAll(ctx context.Context, db *sql.DB) (int, error) {
 		return 0, errors.Wrap(err, "error removing indexed status")
 	}
 
-	return BuildIndex(ctx, db)
+	return BuildIndex(ctx, db, limit)
+}
+
+// Reindex documents that have already been indexed. This does not remove
+// anything from the index, but will overwrite documents that have been updated.
+func ReindexAll(ctx context.Context, db *sql.DB) (int, error) {
+	return ReindexWithLimit(ctx, db, 0)
 }

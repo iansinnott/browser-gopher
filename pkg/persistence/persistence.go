@@ -26,7 +26,7 @@ import (
 // are considered unique by url and unix timestamp.
 //
 //go:embed init.sql
-var initSql string
+var InitSql string
 
 var writeLock sync.Mutex
 
@@ -49,7 +49,7 @@ func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
-	_, err = conn.ExecContext(ctx, initSql)
+	_, err = conn.ExecContext(ctx, InitSql)
 
 	return conn, err
 }
@@ -98,20 +98,32 @@ func InsertUrl(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	return err
 }
 
-func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error {
-	const qry = `
+func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) error {
+	// sql to insert multiple rows at once
+	qry := `
 		INSERT OR REPLACE INTO 
 			urls_meta(url_md5, indexed_at)
-				VALUES(?, ?);
-	`
-	md5 := util.HashMd5String(row.Url)
-	var indexed_at int64
+				VALUES`
 
-	if row.IndexedAt != nil {
-		indexed_at = row.IndexedAt.Unix()
+	for i, row := range rows {
+		if i == 0 {
+			qry += "\n"
+		} else {
+			qry += ",\n"
+		}
+		md5 := util.HashMd5String(row.Url)
+		var indexed_at int64
+
+		if row.IndexedAt != nil {
+			indexed_at = row.IndexedAt.Unix()
+		}
+
+		qry += fmt.Sprintf("('%s', %d)", md5, indexed_at)
 	}
 
-	_, err := db.ExecContext(ctx, qry, md5, indexed_at)
+	qry += ";"
+
+	_, err := db.ExecContext(ctx, qry)
 	return err
 }
 

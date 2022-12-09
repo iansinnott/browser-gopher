@@ -142,7 +142,7 @@ var populateCmd = &cobra.Command{
 		if shouldBuildIndex {
 			fmt.Println("Indexing results...")
 			t := time.Now()
-			n, err := populate.BuildIndex(cmd.Context(), dbConn)
+			n, err := populate.BuildIndex(cmd.Context(), dbConn, 0)
 			if err != nil {
 				logging.Error().Printf("building the search index: %v\n", err)
 				os.Exit(1)

@@ -24,7 +24,7 @@ func (p BleveSearchProvider) SearchBleve(query string) (*bleve.SearchResult, err
 	qry := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(qry)
 	req.Size = 100
-	req.Fields = append(req.Fields, "id", "url", "title", "description", "last_visit")
+	req.Fields = append(req.Fields, "id", "url", "title", "description", "last_visit", "body")
 	req.IncludeLocations = true
 
 	idx, err := populate.GetIndex()

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -21,7 +22,14 @@ var searchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		fmtJson, err := cmd.Flags().GetBool("json")
+		if err != nil {
+			fmt.Println("could not parse --json:", err)
+			os.Exit(1)
+		}
+
 		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
+		// searchProvider := dataProvider
 		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
 		initialQuery := ""
 
@@ -43,12 +51,37 @@ var searchCmd = &cobra.Command{
 				return
 			}
 
-			for _, x := range util.ReverseSlice(result.Urls) {
-				fmt.Printf("%v %s %sv\n", x.LastVisit.Format("2006-01-02"), *x.Title, x.Url)
+			if fmtJson {
+				// output x as a JSON string
+				bs, err := json.MarshalIndent(result.Urls, "", "  ")
+
+				if err != nil {
+					fmt.Println("could not marshal json:", err)
+					os.Exit(1)
+				}
+
+				fmt.Println(string(bs))
+			} else {
+				for _, x := range util.ReverseSlice(result.Urls) {
+					var title string
+					var lastVisit string
+					if x.Title != nil {
+						title = *x.Title
+					} else {
+						title = "<UNTITLED>"
+					}
+
+					if x.LastVisit != nil {
+						lastVisit = x.LastVisit.Format("2006-01-02")
+					}
+
+					fmt.Printf("%v %s %sv\n", lastVisit, title, x.Url)
+				}
+
+				fmt.Printf("Found %d results for \"%s\"\n", result.Count, initialQuery)
+				os.Exit(0)
 			}
 
-			fmt.Printf("Found %d results for \"%s\"\n", result.Count, initialQuery)
-			os.Exit(0)
 			return
 		}
 
@@ -67,5 +100,6 @@ var searchCmd = &cobra.Command{
 
 func init() {
 	searchCmd.Flags().Bool("no-interactive", false, "disable interactive terminal interface. useful for scripting")
+	searchCmd.Flags().Bool("json", false, "output results as json. only works with --no-interactive")
 	rootCmd.AddCommand(searchCmd)
 }

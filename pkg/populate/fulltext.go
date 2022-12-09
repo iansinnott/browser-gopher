@@ -168,9 +168,11 @@ func getUnindexedBodyRows(ctx context.Context, db *sql.DB) ([]types.SearchableEn
 			ent.LastVisit = &t
 		}
 
-		// @todo index this plaintext. Will do this from our data base, since fulltext is now stored there
-		plaintext := stripmd.Strip(*ent.Body)
-		ent.Body = &plaintext
+		if ent.Body != nil {
+			// @todo index this plaintext. Will do this from our data base, since fulltext is now stored there
+			plaintext := stripmd.Strip(*ent.Body)
+			ent.Body = &plaintext
+		}
 
 		ents = append(ents, ent)
 	}
