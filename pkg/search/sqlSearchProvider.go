@@ -2,7 +2,6 @@ package search
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
@@ -157,87 +156,4 @@ LIMIT ?;
 	})
 
 	return &SearchResult{Urls: searchResult, Count: count}, nil
-}
-
-type FullTextSearchProvider struct {
-	ctx  context.Context
-	conf *config.AppConfig
-}
-
-func NewFullTextSearchProvider(ctx context.Context, conf *config.AppConfig) FullTextSearchProvider {
-	return FullTextSearchProvider{ctx: ctx, conf: conf}
-}
-
-func (p FullTextSearchProvider) SearchUrls(query string) (*SearchResult, error) {
-	conn, err := persistence.OpenConnection(p.ctx, p.conf)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	var count uint
-	row := conn.QueryRowContext(p.ctx, `
-SELECT
-	COUNT(*)
-FROM
-  search
-WHERE
-  search MATCH ?
-ORDER BY 
-	"rank";
-	`, query)
-	if row.Err() != nil {
-		return nil, errors.Wrap(row.Err(), "row count error")
-	}
-	err = row.Scan(&count)
-	if err != nil {
-		return nil, errors.Wrap(err, "row count error")
-	}
-
-	// for now highlighting is done manually after the fact, but these matches
-	// could be used to add ascii color codes
-	matchOpen := ""
-	matchClose := ""
-	sqlQry := fmt.Sprintf(`
-		SELECT
-			url_md5,
-			url,
-			title,
-			REPLACE(
-				snippet(search, 5, '%s', '%s', '', 32),
-				CHAR(10),
-				''
-			) AS 'body'
-		FROM
-			search
-		WHERE
-			search MATCH ?
-		ORDER BY 
-			"rank"
-		LIMIT 
-			100;`,
-		matchOpen,
-		matchClose,
-	)
-	rows, err := conn.QueryContext(p.ctx, sqlQry, query)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "query error")
-	}
-	if rows.Err() != nil {
-		return nil, errors.Wrap(rows.Err(), "query error")
-	}
-
-	xs := []types.SearchableEntity{}
-
-	for rows.Next() {
-		var x types.SearchableEntity
-		err := rows.Scan(&x.Id, &x.Url, &x.Title, &x.Body)
-		if err != nil {
-			return nil, errors.Wrap(err, "row error")
-		}
-		xs = append(xs, x)
-	}
-
-	return &SearchResult{Urls: xs, Count: count}, nil
 }

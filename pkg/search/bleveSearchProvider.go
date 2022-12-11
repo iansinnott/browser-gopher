@@ -20,12 +20,18 @@ func NewBleveSearchProvider(ctx context.Context, conf *config.AppConfig) BleveSe
 	return BleveSearchProvider{ctx: ctx, conf: conf}
 }
 
-func (p BleveSearchProvider) SearchBleve(query string) (*bleve.SearchResult, error) {
+// Search the Bleve index. Fields array can be used to specify which fields for
+// which to return the full text value. pass []string{"*"] for all fields. defaults to
+// empty. Any matched fields will be at least partially included via the fragments struct
+func (p BleveSearchProvider) SearchBleve(query string, fields ...string) (*bleve.SearchResult, error) {
 	qry := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(qry)
-	req.Size = 100
-	req.Fields = append(req.Fields, "id", "url", "title", "description", "last_visit", "body")
+	req.Fields = fields
+	req.Size = 100 // item count
+	req.From = 0   // for pagination
 	req.IncludeLocations = true
+	req.Explain = false                  // could be useful in the future
+	req.Highlight = bleve.NewHighlight() // highlight results. by default with <mark> tags
 
 	idx, err := populate.GetIndex()
 	if err != nil {

@@ -29,7 +29,6 @@ var searchCmd = &cobra.Command{
 		}
 
 		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
-		// searchProvider := dataProvider
 		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
 		initialQuery := ""
 
