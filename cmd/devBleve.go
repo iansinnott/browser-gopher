@@ -1,78 +1,39 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
-	bs "github.com/blevesearch/bleve/v2/search"
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/search"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
 var devBleveCmd = &cobra.Command{
 	Use:   "bleve-search",
 	Short: "Search bleve directly",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		query := args[0]
+		if query == "" {
+			fmt.Println("query is required")
+			os.Exit(1)
+		}
+
 		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
-		result, err := searchProvider.SearchBleve("github")
+		result, err := searchProvider.SearchBleve(query, "id", "url", "title", "description", "last_visit")
 		if err != nil {
 			fmt.Println("search error", err)
 			os.Exit(1)
 		}
 
-		fmt.Println("count:", result.Total)
-		for _, hit := range result.Hits {
-			fmt.Printf("hit: %s\n", hit.ID)
-			fmt.Println(hit.Fields["url"])
-			fmt.Printf("terms: %+v\n", hit.Locations)
-		}
-
-		urls, err := searchProvider.SearchUrls(`github`)
+		err = json.NewEncoder(os.Stdout).Encode(result)
 		if err != nil {
-			if strings.Contains(err.Error(), "parse error") {
-				fmt.Println("parse error ignored")
-				os.Exit(0)
-			} else {
-				fmt.Println("search error", err)
-				os.Exit(1)
-			}
+			fmt.Println("json error", err)
+			os.Exit(1)
 		}
 
-		// stop here if no meta info
-		if urls.Meta == nil {
-			os.Exit(0)
-		}
-
-		for _, url := range urls.Urls {
-			hit, ok := lo.Find(urls.Meta.Hits, func(x *bs.DocumentMatch) bool {
-				return x.ID == url.UrlMd5
-			})
-			if ok {
-
-				for k, locations := range hit.Locations {
-					var s string
-					switch k {
-					case "title":
-						s = *url.Title
-					case "url":
-						s = url.Url
-					default:
-					}
-
-					for _, locs := range locations {
-						for _, loc := range locs {
-							s = highlightLocation(loc, s)
-						}
-					}
-
-					fmt.Println(s)
-				}
-
-			}
-		}
 	},
 }
 

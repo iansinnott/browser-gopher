@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	ex "github.com/iansinnott/browser-gopher/pkg/extractors"
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/populate"
 	"github.com/pkg/errors"
@@ -39,6 +41,12 @@ var populateCmd = &cobra.Command{
 		shouldBuildIndex, err := cmd.Flags().GetBool("build-index")
 		if err != nil {
 			fmt.Println("could not parse --build-index:", err)
+			os.Exit(1)
+		}
+
+		shouldScrapeFulltext, err := cmd.Flags().GetBool("fulltext")
+		if err != nil {
+			fmt.Println("could not parse --fulltext:", err)
 			os.Exit(1)
 		}
 
@@ -87,25 +95,59 @@ var populateCmd = &cobra.Command{
 
 		if len(errs) > 0 {
 			for _, e := range errs {
-				log.Println(e)
+				logging.Warn().Println("browser failure:", e)
 			}
-			err = fmt.Errorf("one or more browsers failed")
+
+			if len(errs) == len(extractors) {
+				err = fmt.Errorf("all browsers failed to populate. exiting")
+			}
 		}
 
 		if err != nil {
-			fmt.Println("Encountered an error", err)
+			logging.Error().Println("Encountered an error", err)
 			os.Exit(1)
+		}
+
+		if shouldScrapeFulltext {
+			var n int
+			retries := 5
+			t := time.Now()
+
+			// @note It's not clear why sqlite is throwing busy errors. Concurrency is
+			// used under the hood by colly but not directly in our code, so in theory
+			// there should be only one goroutine accessing the database.
+			// The retry loop is a workaround for episodic sqlite busy errors.
+			for retries > 0 {
+				n, err = populate.PopulateFulltext(cmd.Context(), dbConn)
+				if err != nil {
+					// if the error is sqlite_busy then retry once
+					if strings.Contains(err.Error(), "database is locked") {
+						fmt.Println("database is locked, retrying in 5 seconds")
+						time.Sleep(5 * time.Second)
+						retries--
+						continue
+					}
+
+					logging.Error().Printf("could not populate fulltext: %v\n", err)
+					os.Exit(1)
+				}
+
+				// if no error then break out
+				break
+			}
+
+			log.Printf("Scraped %d pages in %v\n", n, time.Since(t))
 		}
 
 		if shouldBuildIndex {
 			fmt.Println("Indexing results...")
 			t := time.Now()
-			n, err := populate.BuildIndex(cmd.Context(), dbConn)
+			n, err := populate.BuildIndex(cmd.Context(), dbConn, 0)
 			if err != nil {
-				fmt.Println("encountered an error building the search index", err)
+				logging.Error().Printf("building the search index: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Indexed %d records in %v\n", n, time.Since(t))
+			log.Printf("Indexed %d records in %v\n", n, time.Since(t))
 		}
 	},
 }
@@ -115,4 +157,5 @@ func init() {
 	populateCmd.Flags().StringP("browser", "b", "", "Specify the browser name you'd like to extract")
 	populateCmd.Flags().Bool("latest", false, "Only populate data that's newer than last import (Recommended, likely will be default in future version)")
 	populateCmd.Flags().Bool("build-index", true, "Whether or not to build the search index. Required for search to work.")
+	populateCmd.Flags().Bool("fulltext", false, "Whether or not to collect the full-text of each page in your browsing history and make it searchable.")
 }

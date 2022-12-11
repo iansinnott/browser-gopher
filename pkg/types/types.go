@@ -19,13 +19,27 @@ type UrlMetaRow struct {
 	IndexedAt *time.Time // Nullable
 }
 
-// The URL as represented in the db.
+// DocumentRow represents a full-text document. The HTML version of a web page.
+// However, the HTML body is not stored (for now). The page will be distilled to
+// plain text. A markdown version will be stored on disk, again, for now.
+type DocumentRow struct {
+	DocumentMd5 string
+	UrlMd5      string
+	StatusCode  int        // the HTTP status code returned during fetch
+	AccessedAt  *time.Time // Nullable
+	Body        *string    // Fulltext of the webpage as markdown
+}
+
+// Initially this was a URL row representation but it was later augmented with
+// body, which is only available via join.
 type UrlDbEntity struct {
 	UrlMd5      string
 	Url         string
-	Title       *string    // Nullable
-	Description *string    // Nullable
-	LastVisit   *time.Time // Nullable
+	Title       *string
+	Description *string
+	LastVisit   *time.Time
+	Body        *string
+	BodyMd5     *string
 }
 
 type VisitRow struct {
@@ -47,4 +61,26 @@ type Extractor interface {
 	// sqlite, it's not uncommon for a db to be locked. The Open call will work
 	// but the db cannot be read.
 	VerifyConnection(ctx context.Context, conn *sql.DB) (bool, error)
+}
+
+type SearchableEntity struct {
+	Id          string     `json:"id"`
+	Url         string     `json:"url"`
+	Title       *string    `json:"title"`
+	Description *string    `json:"description"`
+	LastVisit   *time.Time `json:"last_visit"`
+	Body        *string    `json:"body"`
+	BodyMd5     *string    `json:"body_md5"`
+}
+
+func UrlDbEntityToSearchableEntity(x UrlDbEntity) SearchableEntity {
+	return SearchableEntity{
+		Id:          x.UrlMd5,
+		Url:         x.Url,
+		Title:       x.Title,
+		Description: x.Description,
+		LastVisit:   x.LastVisit,
+		Body:        x.Body,
+		BodyMd5:     x.BodyMd5,
+	}
 }

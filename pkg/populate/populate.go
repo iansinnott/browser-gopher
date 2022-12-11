@@ -25,11 +25,6 @@ func PopulateAll(extractor types.Extractor) error {
 }
 
 func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
-	if since != inceptionTime {
-		log.Println("["+extractor.GetName()+"] populating records since", since.String())
-	}
-	log.Println("["+extractor.GetName()+"] reading", extractor.GetDBPath())
-
 	conn, err := sql.Open("sqlite", extractor.GetDBPath())
 	ctx := context.TODO()
 
@@ -47,9 +42,9 @@ func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
 			return err
 		}
 
-		log.Println("[" + extractor.GetName() + "] database is locked. copying for read access.")
-
 		tmpPath := filepath.Join(os.TempDir(), extractor.GetName()+"_backup.sqlite")
+
+		log.Println("[" + extractor.GetName() + "] database locked, copying for read access: " + extractor.GetDBPath())
 
 		err := util.CopyPath(extractor.GetDBPath(), tmpPath)
 		if err != nil {
@@ -85,8 +80,12 @@ func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
 		os.Exit(1)
 	}
 
-	log.Println("["+extractor.GetName()+"]\turls", len(urls))
-	log.Println("["+extractor.GetName()+"]\tvisits", len(visits))
+	var sinceString string
+	if since != inceptionTime {
+		sinceString = "since:" + since.Format(time.RFC3339)
+	}
+
+	log.Printf("["+extractor.GetName()+"] %s urls:%d visits:%d source:%s", sinceString, len(urls), len(visits), extractor.GetDBPath())
 
 	db, err := persistence.InitDb(ctx, config.Config)
 	if err != nil {

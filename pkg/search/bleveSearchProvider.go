@@ -7,6 +7,8 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/populate"
+	"github.com/iansinnott/browser-gopher/pkg/types"
+	"github.com/samber/lo"
 )
 
 type BleveSearchProvider struct {
@@ -18,12 +20,18 @@ func NewBleveSearchProvider(ctx context.Context, conf *config.AppConfig) BleveSe
 	return BleveSearchProvider{ctx: ctx, conf: conf}
 }
 
-func (p BleveSearchProvider) SearchBleve(query string) (*bleve.SearchResult, error) {
+// Search the Bleve index. Fields array can be used to specify which fields for
+// which to return the full text value. pass []string{"*"] for all fields. defaults to
+// empty. Any matched fields will be at least partially included via the fragments struct
+func (p BleveSearchProvider) SearchBleve(query string, fields ...string) (*bleve.SearchResult, error) {
 	qry := bleve.NewQueryStringQuery(query)
 	req := bleve.NewSearchRequest(qry)
-	req.Size = 100
-	req.Fields = append(req.Fields, "id", "url", "title", "description", "last_visit")
+	req.Fields = fields
+	req.Size = 100 // item count
+	req.From = 0   // for pagination
 	req.IncludeLocations = true
+	req.Explain = false                  // could be useful in the future
+	req.Highlight = bleve.NewHighlight() // highlight results. by default with <mark> tags
 
 	idx, err := populate.GetIndex()
 	if err != nil {
@@ -33,7 +41,7 @@ func (p BleveSearchProvider) SearchBleve(query string) (*bleve.SearchResult, err
 	return (*idx).Search(req)
 }
 
-func (p BleveSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
+func (p BleveSearchProvider) SearchUrls(query string) (*SearchResult, error) {
 	result, err := p.SearchBleve(query)
 	if err != nil {
 		return nil, err
@@ -55,5 +63,9 @@ func (p BleveSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
 		return nil, err
 	}
 
-	return &URLQueryResult{Urls: xs, Count: uint(result.Total), Meta: result}, err
+	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
+		return types.UrlDbEntityToSearchableEntity(x)
+	})
+
+	return &SearchResult{Urls: searchResult, Count: uint(result.Total), Meta: result}, err
 }

@@ -10,6 +10,7 @@ import (
 
 type AppConfig struct {
 	AppDataPath     string
+	BackupDir       string
 	DBPath          string
 	SearchIndexPath string
 }
@@ -18,9 +19,15 @@ type AppConfig struct {
 func newConfig() *AppConfig {
 	conf := &AppConfig{
 		AppDataPath: util.Expanduser(filepath.Join("~", ".config", "browser-gopher")),
+		BackupDir:   util.Expanduser(filepath.Join("~", ".cache", "browser-gopher")),
 	}
 
 	err := os.MkdirAll(conf.AppDataPath, 0755)
+	if err != nil {
+		log.Fatal("could not create app data path: "+conf.AppDataPath, err)
+	}
+
+	err = os.MkdirAll(conf.BackupDir, 0755)
 	if err != nil {
 		log.Fatal("could not create app data path: "+conf.AppDataPath, err)
 	}

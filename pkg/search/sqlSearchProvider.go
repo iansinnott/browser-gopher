@@ -8,6 +8,7 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 )
 
 type SqlSearchProvider struct {
@@ -19,7 +20,7 @@ func NewSqlSearchProvider(ctx context.Context, conf *config.AppConfig) SqlSearch
 	return SqlSearchProvider{ctx: ctx, conf: conf}
 }
 
-func (p SqlSearchProvider) SearchUrls(query string) (*URLQueryResult, error) {
+func (p SqlSearchProvider) SearchUrls(query string) (*SearchResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
@@ -86,10 +87,14 @@ LIMIT 100;
 		xs = append(xs, x)
 	}
 
-	return &URLQueryResult{Urls: xs, Count: count}, nil
+	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
+		return types.UrlDbEntityToSearchableEntity(x)
+	})
+
+	return &SearchResult{Urls: searchResult, Count: count}, nil
 }
 
-func (p SqlSearchProvider) RecentUrls(limit uint) (*URLQueryResult, error) {
+func (p SqlSearchProvider) RecentUrls(limit uint) (*SearchResult, error) {
 	conn, err := persistence.OpenConnection(p.ctx, p.conf)
 	if err != nil {
 		return nil, err
@@ -146,5 +151,9 @@ LIMIT ?;
 		xs = append(xs, x)
 	}
 
-	return &URLQueryResult{Urls: xs, Count: count}, nil
+	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
+		return types.UrlDbEntityToSearchableEntity(x)
+	})
+
+	return &SearchResult{Urls: searchResult, Count: count}, nil
 }

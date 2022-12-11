@@ -17,7 +17,7 @@ const FormatDateOnly = "2006-01-02"
 // @note Rather than parse timestamps we can also pull timestamps out of the db.
 // Here's an example for Chrome:
 //
-//     strftime("%s", visit_time / 1e6 + strftime ('%s', '1601-01-01'), 'unixepoch') AS `timestamp`,
+//	strftime("%s", visit_time / 1e6 + strftime ('%s', '1601-01-01'), 'unixepoch') AS `timestamp`,
 //
 // Might be a better approach, but for now I like seeing the extracted time
 // visually for debugging.
@@ -41,10 +41,14 @@ func Expanduser(path string) string {
 	return strings.Replace(path, "~", userHome, 1)
 }
 
-func HashMd5String(s string) string {
+func HashMd5(bs []byte) string {
 	h := md5.New()
-	h.Write([]byte(s))
+	h.Write(bs)
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func HashMd5String(s string) string {
+	return HashMd5([]byte(s))
 }
 
 func CopyPath(frm, to string) error {

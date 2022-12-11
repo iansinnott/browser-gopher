@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
+
+	_ "embed"
 
 	_ "modernc.org/sqlite"
 
@@ -21,31 +24,11 @@ import (
 // or in cases like the history trends chrome extension duplication is
 // explicitly part of the goal. Thus, in order to minimize duplication visits
 // are considered unique by url and unix timestamp.
-const initSql = `
-CREATE TABLE IF NOT EXISTS "urls" (
-  "url_md5" VARCHAR(32) PRIMARY KEY NOT NULL,
-  "url" TEXT UNIQUE NOT NULL,
-  "title" TEXT,
-  "description" TEXT,
-  "last_visit" INTEGER
-);
+//
+//go:embed init.sql
+var InitSql string
 
-CREATE TABLE IF NOT EXISTS "urls_meta" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-  "url_md5" VARCHAR(32) UNIQUE NOT NULL REFERENCES urls(url_md5),
-  "indexed_at" INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS "visits" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-  "url_md5" VARCHAR(32) NOT NULL REFERENCES urls(url_md5),
-  "visit_time" INTEGER,
-  "extractor_name" TEXT
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS visits_unique ON visits(url_md5, visit_time);
-CREATE INDEX IF NOT EXISTS visits_url_md5 ON visits(url_md5);
-`
+var writeLock sync.Mutex
 
 // Open a connection to the database. Calling code should close the connection when done.
 // @note It is assumed that the database is already initialized. Thus this may be less useful than `InitDB`
@@ -66,7 +49,7 @@ func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
-	_, err = conn.ExecContext(ctx, initSql)
+	_, err = conn.ExecContext(ctx, InitSql)
 
 	return conn, err
 }
@@ -101,8 +84,9 @@ LIMIT 1;
 
 func InsertUrl(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	const qry = `
-		INSERT OR REPLACE INTO urls(url_md5, url, title, description, last_visit)
-			VALUES(?, ?, ?, ?, ?);
+		INSERT OR REPLACE INTO 
+			urls(url_md5, url, title, description, last_visit)
+				VALUES(?, ?, ?, ?, ?);
 	`
 	var lastVisit int64
 	if row.LastVisit != nil {
@@ -114,26 +98,83 @@ func InsertUrl(ctx context.Context, db *sql.DB, row *types.UrlRow) error {
 	return err
 }
 
-func InsertUrlMeta(ctx context.Context, db *sql.DB, row *types.UrlMetaRow) error {
-	const qry = `
-		INSERT OR REPLACE INTO urls_meta(url_md5, indexed_at)
-			VALUES(?, ?);
-	`
-	md5 := util.HashMd5String(row.Url)
-	var indexed_at int64
+func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) error {
+	// sql to insert multiple rows at once
+	qry := `
+		INSERT OR REPLACE INTO 
+			urls_meta(url_md5, indexed_at)
+				VALUES`
 
-	if row.IndexedAt != nil {
-		indexed_at = row.IndexedAt.Unix()
+	for i, row := range rows {
+		if i == 0 {
+			qry += "\n"
+		} else {
+			qry += ",\n"
+		}
+		md5 := util.HashMd5String(row.Url)
+		var indexed_at int64
+
+		if row.IndexedAt != nil {
+			indexed_at = row.IndexedAt.Unix()
+		}
+
+		qry += fmt.Sprintf("('%s', %d)", md5, indexed_at)
 	}
 
-	_, err := db.ExecContext(ctx, qry, md5, indexed_at)
+	qry += ";"
+
+	_, err := db.ExecContext(ctx, qry)
 	return err
+}
+
+func InsertDocument(ctx context.Context, db *sql.DB, row *types.DocumentRow) error {
+	writeLock.Lock()
+	defer writeLock.Unlock()
+
+	var accessed_at int64
+	var err error
+
+	if row.AccessedAt != nil {
+		accessed_at = row.AccessedAt.Unix()
+	}
+
+	// @note these are separate transactions because of how Exec handles
+	// positional args with multiple statements. There is no way to pass different
+	// args to subsequent statements, the arg list order is reset for each one.
+	// I.e. the first positional arg is the first in _all_ statements.
+
+	_, err = db.ExecContext(ctx,
+		`
+		INSERT OR REPLACE INTO 
+			documents(document_md5, status_code, accessed_at, body)
+				VALUES(?, ?, ?, ?);
+		`,
+		row.DocumentMd5, row.StatusCode, accessed_at, row.Body,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.ExecContext(ctx,
+		`
+		INSERT OR IGNORE INTO
+			url_document_edges(url_md5, document_md5)
+				VALUES(?, ?);
+		`,
+		row.UrlMd5, row.DocumentMd5,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func InsertVisit(ctx context.Context, db *sql.DB, row *types.VisitRow) error {
 	const qry = `
-		INSERT OR IGNORE INTO visits(url_md5, visit_time, extractor_name)
-			VALUES(?, ?, ?);
+		INSERT OR IGNORE INTO 
+			visits(url_md5, visit_time, extractor_name)
+				VALUES(?, ?, ?);
 	`
 	md5 := util.HashMd5String(row.Url)
 
@@ -149,6 +190,8 @@ func CountUrlsWhere(ctx context.Context, db *sql.DB, where string, args ...inter
 		FROM
 			urls
 			LEFT OUTER JOIN urls_meta ON urls.url_md5 = urls_meta.url_md5
+			LEFT OUTER JOIN url_document_edges ON urls.url_md5 = url_document_edges.url_md5
+			LEFT OUTER JOIN documents ON url_document_edges.document_md5 = documents.document_md5
 		WHERE %s;
 	`
 	qry = fmt.Sprintf(qry, where)
