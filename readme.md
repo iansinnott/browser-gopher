@@ -35,9 +35,13 @@ make build
 ./browser-gopher search
 ```
 
+## Contributing
+
+Would be great! Send a PR.
+
 ## Project status
 
-Just started. Currently it extracts and stores all your browsing history in SQLite. You can search over all your browsing history, but full-text is not yet extracted (it's in-progress on the [feat/fts branch](https://github.com/iansinnott/browser-gopher/tree/feat/fts)).
+Started recently, but should be roughly stable. Currently it extracts and stores all your browsing history in SQLite and indexes it with Bleve. You can search over all your browsing history, including full-text. However, full-text extraction requires use of the `--fulltext` flag (turned off by default).
 
 ## Supported browsers
 
@@ -84,10 +88,11 @@ browser-gopher browserparrot --db-path ~/.config/uncloud/persistory.db
   - [x] action: open
   - [ ] action: copy
 - [x] a TUI for searching and filtering for a more GUI-like experience
-- [ ] full text indexing
+- [x] full text indexing
   - ideally with more sophisticated extraction mechanisms than previous
-- [ ] import history from History Trends Unlimited
+- [x] import history from History Trends Unlimited
   - It's already in sqlite so should be quick
 - ~~favicons~~
   - Update: Tried https://github.com/trashhalo/imgcat/blob/master/component/load.go#L121. Cannot effectively render at such small sizes in the terminal.
   - If anyone has suggestions for how to render 32x32 pngs in the terminal please let me know.
+  - Will just use the GUI for this
