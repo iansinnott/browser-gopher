@@ -28,7 +28,7 @@ import (
 // are considered unique by url and unix timestamp.
 //
 //go:embed migrations/*
-var migrationsDir embed.FS
+var MigrationsDir embed.FS
 
 var writeLock sync.Mutex
 
@@ -51,9 +51,24 @@ func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
-	entries, err := migrationsDir.ReadDir("migrations")
+	entries, err := MigrationsDir.ReadDir("migrations")
 	if err != nil {
 		return nil, err
+	}
+
+	// pull out `select current_timestamp;` from the database
+	// this is used to set the version of the database
+	var version string
+	err = conn.QueryRowContext(ctx, "PRAGMA user_version;").Scan(&version)
+	if err != nil {
+		return nil, err
+	}
+
+	if version == "0" {
+		_, err = conn.ExecContext(ctx, "PRAGMA user_version = 1;")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// make sure the migrations are sorted
@@ -67,9 +82,17 @@ func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 			continue
 		}
 
+		migrationVersion := strings.Split(entry.Name(), "_")[0]
+		migrationVersion = strings.TrimPrefix(migrationVersion, "0")
+
+		// skip migrations that have already been run
+		if migrationVersion <= version {
+			continue
+		}
+
 		filePath := "migrations/" + entry.Name()
 
-		migration, err := migrationsDir.ReadFile(filePath)
+		migration, err := MigrationsDir.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -78,6 +101,13 @@ func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		_, err = conn.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %s;", migrationVersion))
+		if err != nil {
+			return nil, err
+		}
+
+		version = migrationVersion
 	}
 
 	return conn, err

@@ -3,6 +3,8 @@ package testutils
 import (
 	"database/sql"
 	_ "embed"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
@@ -16,8 +18,34 @@ func GetTestDBConn(t *testing.T) (*sql.DB, error) {
 		return nil, errors.Wrap(err, "could not open test db")
 	}
 
-	// Create the tables
-	_, err = conn.Exec(persistence.InitSql)
+	entries, err := persistence.MigrationsDir.ReadDir("migrations")
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the migrations are sorted
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	for _, entry := range entries {
+		// skip files that are not migrations
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+
+		filePath := "migrations/" + entry.Name()
+
+		migration, err := persistence.MigrationsDir.ReadFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = conn.Exec(string(migration))
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return conn, err
 }
