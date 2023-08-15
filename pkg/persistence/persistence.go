@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	_ "embed"
+	"embed"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/types"
@@ -25,8 +26,8 @@ import (
 // explicitly part of the goal. Thus, in order to minimize duplication visits
 // are considered unique by url and unix timestamp.
 //
-//go:embed init.sql
-var InitSql string
+//go:embed migrations/*
+var migrationsDir embed.FS
 
 var writeLock sync.Mutex
 
@@ -34,7 +35,7 @@ var writeLock sync.Mutex
 // @note It is assumed that the database is already initialized. Thus this may be less useful than `InitDB`
 func OpenConnection(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	dbPath := c.DBPath
-	conn, err := sql.Open("sqlite", dbPath)
+	conn, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +50,34 @@ func InitDb(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
-	_, err = conn.ExecContext(ctx, InitSql)
+	entries, err := migrationsDir.ReadDir("migrations")
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the migrations are sorted
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	for _, entry := range entries {
+		// skip files that are not migrations
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+
+		filePath := "migrations/" + entry.Name()
+
+		migration, err := migrationsDir.ReadFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = conn.ExecContext(ctx, string(migration))
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return conn, err
 }

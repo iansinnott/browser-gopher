@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	bs "github.com/blevesearch/bleve/v2/search"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,7 +16,6 @@ import (
 	"github.com/iansinnott/browser-gopher/pkg/search"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 )
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
@@ -25,16 +23,6 @@ var titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fafa
 var urlStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#87BCF7"))
 
 var HighlightStyle = lipgloss.NewStyle().Background(lipgloss.Color("#D8D7A0")).Foreground(lipgloss.Color("#000000"))
-
-func HighlightLocation(loc *bs.Location, text string) string {
-	var sb strings.Builder
-
-	sb.WriteString(text[:loc.Start])
-	sb.WriteString(HighlightStyle.Render(text[loc.Start:loc.End]))
-	sb.WriteString(text[loc.End:])
-
-	return sb.String()
-}
 
 const UNTITLED = "<UNTITLED>"
 
@@ -215,24 +203,25 @@ func ResultToItems(result *search.SearchResult, query string, mapItem ItemMappin
 			displayTitle = *u.Title
 		}
 
+		// @todo commented out while moving to sqlite
 		// Highlighting
-		if result.Meta != nil {
-			hit, ok := lo.Find(result.Meta.Hits, func(x *bs.DocumentMatch) bool {
-				return x.ID == u.Id
-			})
+		// if result.Meta != nil {
+		// 	hit, ok := lo.Find(result.Meta.Hits, func(x *bs.DocumentMatch) bool {
+		// 		return x.ID == u.Id
+		// 	})
 
-			if ok {
-				for k, locations := range hit.Locations {
-					switch k {
-					case "title":
-						displayTitle = search.HighlightAll(locations, displayTitle, HighlightStyle.Render)
-					case "url":
-						displayUrl = search.HighlightAll(locations, displayUrl, HighlightStyle.Render)
-					default:
-					}
-				}
-			}
-		}
+		// 	if ok {
+		// 		for k, locations := range hit.Locations {
+		// 			switch k {
+		// 			case "title":
+		// 				displayTitle = search.HighlightAll(locations, displayTitle, HighlightStyle.Render)
+		// 			case "url":
+		// 				displayUrl = search.HighlightAll(locations, displayUrl, HighlightStyle.Render)
+		// 			default:
+		// 			}
+		// 		}
+		// 	}
+		// }
 
 		items = append(items, mapItem(ListItem{
 			ItemTitle: displayTitle,
