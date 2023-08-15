@@ -11,7 +11,8 @@ import (
 
 	"embed"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
+	// _ "github.com/mattn/go-sqlite3"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/types"
@@ -35,7 +36,7 @@ var writeLock sync.Mutex
 // @note It is assumed that the database is already initialized. Thus this may be less useful than `InitDB`
 func OpenConnection(ctx context.Context, c *config.AppConfig) (*sql.DB, error) {
 	dbPath := c.DBPath
-	conn, err := sql.Open("sqlite3", dbPath)
+	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, err
 	}
