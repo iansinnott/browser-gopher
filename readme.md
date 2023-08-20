@@ -11,7 +11,11 @@ Search, aggregate, backup your browsing history from the command line.
 
 ## Installation
 
-For now, install from source:
+### Option 1: Download pre-built binary
+
+Grab a binary from the [releases page](https://github.com/iansinnott/browser-gopher/releases/latest) and put it somewhere in your path.
+
+### Option 2: install from source:
 
 ```sh
 # Install go if you don't have it: https://go.dev/doc/install
