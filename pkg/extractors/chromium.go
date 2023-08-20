@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 )
@@ -63,7 +64,11 @@ func (a *ChromiumExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) 
 }
 
 func (a *ChromiumExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
-	rows, err := conn.QueryContext(ctx, chromiumUrls, since.Format(util.SQLiteDateTime))
+	// NOTE it is very important to use UTC. Otherwise the timezone will be unintentionally stripped (this was a bug before)
+	// aside: we should probably use the ints rather than string formatting.
+	sinceString := since.UTC().Format(util.SQLiteDateTime)
+	logging.Debug().Println("sinceString", sinceString)
+	rows, err := conn.QueryContext(ctx, chromiumUrls, sinceString)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -98,7 +103,7 @@ func (a *ChromiumExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, s
 }
 
 func (a *ChromiumExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
-	rows, err := conn.QueryContext(ctx, chromiumVisits, since.Format(util.SQLiteDateTime))
+	rows, err := conn.QueryContext(ctx, chromiumVisits, since.UTC().Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err

@@ -2,6 +2,7 @@ package util
 
 import (
 	"crypto/md5"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"os"
@@ -49,6 +50,16 @@ func HashMd5(bs []byte) string {
 
 func HashMd5String(s string) string {
 	return HashMd5([]byte(s))
+}
+
+func HashSha1(bs []byte) string {
+	h := sha1.New()
+	h.Write(bs)
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func HashSha1String(s string) string {
+	return HashSha1([]byte(s))
 }
 
 func CopyPath(frm, to string) error {

@@ -50,6 +50,12 @@ var populateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		keepTmpFiles, err := cmd.Flags().GetBool("keep-tmp-files")
+		if err != nil {
+			fmt.Println("could not parse --keep-tmp-files:", err)
+			os.Exit(1)
+		}
+
 		extractors, err := ex.BuildExtractorList()
 		if err != nil {
 			log.Println("error getting extractors", err)
@@ -79,17 +85,19 @@ var populateCmd = &cobra.Command{
 					os.Exit(1)
 				}
 
+				logging.Debug().Println("latest time:", latestTime, latestTime.Format(time.RFC3339))
+
 				since = *latestTime
 			}
 
 			var err error
 			if onlyLatest {
-				err = populate.PopulateSinceTime(x, since)
+				err = populate.PopulateSinceTime(x, since, &populate.PopulateOptions{KeepTmpFiles: keepTmpFiles})
 			} else {
 				err = populate.PopulateAll(x)
 			}
 			if err != nil {
-				errs = append(errs, errors.Wrap(err, x.GetName()+" error:"))
+				errs = append(errs, errors.Wrap(err, x.GetName()+" populate:"))
 			}
 		}
 
@@ -158,4 +166,5 @@ func init() {
 	populateCmd.Flags().Bool("latest", false, "Only populate data that's newer than last import (Recommended, likely will be default in future version)")
 	populateCmd.Flags().Bool("build-index", true, "Whether or not to build the search index. Required for search to work.")
 	populateCmd.Flags().Bool("fulltext", false, "Whether or not to collect the full-text of each page in your browsing history and make it searchable.")
+	populateCmd.Flags().Bool("keep-tmp-files", false, "Whether or not to keep temporary files created during the populate process. Probably only useful for debugging.")
 }

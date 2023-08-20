@@ -42,6 +42,17 @@ type UrlDbEntity struct {
 	BodyMd5     *string
 }
 
+type UrlDbSearchEntity struct {
+	UrlMd5      string
+	Url         string
+	Title       *string
+	Description *string
+	LastVisit   *time.Time
+	Match       *string
+	MatchCount  *int
+	SumRank     *float64
+}
+
 type VisitRow struct {
 	Url      string
 	Datetime time.Time
@@ -69,8 +80,9 @@ type SearchableEntity struct {
 	Title       *string    `json:"title"`
 	Description *string    `json:"description"`
 	LastVisit   *time.Time `json:"last_visit"`
-	Body        *string    `json:"body"`
-	BodyMd5     *string    `json:"body_md5"`
+	Match       *string    `json:"match"`
+	MatchCount  *int       `json:"match_count"`
+	SumRank     *float64   `json:"sum_rank"`
 }
 
 func UrlDbEntityToSearchableEntity(x UrlDbEntity) SearchableEntity {
@@ -80,7 +92,18 @@ func UrlDbEntityToSearchableEntity(x UrlDbEntity) SearchableEntity {
 		Title:       x.Title,
 		Description: x.Description,
 		LastVisit:   x.LastVisit,
-		Body:        x.Body,
-		BodyMd5:     x.BodyMd5,
+	}
+}
+
+func UrlDbSearchEntityToSearchableEntity(x UrlDbSearchEntity) SearchableEntity {
+	return SearchableEntity{
+		Id:          x.UrlMd5,
+		Url:         x.Url,
+		Title:       x.Title,
+		Description: x.Description,
+		LastVisit:   x.LastVisit,
+		Match:       x.Match,
+		MatchCount:  x.MatchCount,
+		SumRank:     x.SumRank,
 	}
 }

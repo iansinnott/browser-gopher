@@ -228,7 +228,7 @@ func ResultToItems(result *search.SearchResult, query string, mapItem ItemMappin
 			Desc:      displayUrl,
 			Date:      u.LastVisit,
 			query:     query,
-			Body:      u.Body,
+			Body:      u.Match,
 		}))
 	}
 

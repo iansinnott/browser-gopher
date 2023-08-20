@@ -68,7 +68,7 @@ func (a *HistoryTrendsExtractor) VerifyConnection(ctx context.Context, conn *sql
 }
 
 func (a *HistoryTrendsExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
-	rows, err := conn.QueryContext(ctx, historyTrendsUrls, since.Format(util.SQLiteDateTime))
+	rows, err := conn.QueryContext(ctx, historyTrendsUrls, since.UTC().Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -103,7 +103,7 @@ func (a *HistoryTrendsExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.
 }
 
 func (a *HistoryTrendsExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
-	rows, err := conn.QueryContext(ctx, historyTrendsVisits, since.Format(util.SQLiteDateTime))
+	rows, err := conn.QueryContext(ctx, historyTrendsVisits, since.UTC().Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err

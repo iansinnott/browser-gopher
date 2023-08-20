@@ -4,94 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/blevesearch/bleve/v2"
-	_ "github.com/blevesearch/bleve/v2/analysis/analyzer/simple"
-	_ "github.com/blevesearch/bleve/v2/analysis/lang/cjk"
-	"github.com/iansinnott/browser-gopher/pkg/config"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
+	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/pkg/errors"
 	stripmd "github.com/writeas/go-strip-markdown"
 )
-
-// reference the index so that it does't get opened multiple times (causes
-// breakage). What's the best way to do this?
-var index bleve.Index
-
-func GetIndex() (*bleve.Index, error) {
-	if index != nil {
-		return &index, nil
-	}
-
-	var (
-		idx bleve.Index
-		err error
-	)
-
-	// if bleve index exists on disk then open it, otherwise create a new index
-	_, err = os.Stat(config.Config.SearchIndexPath)
-
-	if os.IsNotExist(err) {
-		// start building up the doc mapping
-		docMapping := bleve.NewDocumentMapping()
-
-		// for md5s, which are used as id fields, do not index them. but we need them stored for retreival later
-		md5Mapping := bleve.NewTextFieldMapping()
-		md5Mapping.Store = true
-		md5Mapping.Index = false
-		docMapping.AddFieldMappingsAt("url_md5", md5Mapping)
-		docMapping.AddFieldMappingsAt("body_md5", md5Mapping)
-
-		// handle datetimes
-		lastVisitMapping := bleve.NewDateTimeFieldMapping()
-		docMapping.AddFieldMappingsAt("last_visit", lastVisitMapping)
-
-		urlMapping := bleve.NewTextFieldMapping()
-		urlMapping.Store = true
-		urlMapping.Index = true
-		// There is also 'web', supposedly: https://bleveanalysis.couchbase.com/analysis
-		urlMapping.Analyzer = "simple" // docs: https://blevesearch.com/docs/Analyzers/
-		docMapping.AddFieldMappingsAt("url", urlMapping)
-
-		// Text mapping uses CJK because it also supports latin script. The 'en' analyzer (or other language)
-		// might be more optimal for a specific language, but in the interest of supporting non-latin scripts
-		// we're using cjk. See: https://bleveanalysis.couchbase.com/analysis for how these analyzers differ.
-		// Have not tested with other non-spaced, non-latin languages (such as Thai).
-		textMapping := bleve.NewTextFieldMapping()
-		textMapping.Store = true
-		textMapping.Index = true
-		textMapping.Analyzer = "cjk"
-		docMapping.AddFieldMappingsAt("title", textMapping)
-		docMapping.AddFieldMappingsAt("description", textMapping)
-
-		// the document body will be stored in sqlite, so does not need to be stored here
-		bodyMapping := bleve.NewTextFieldMapping()
-		bodyMapping.Store = true // @todo We can have a smaller index by not storing this, but then we need to hit the db for found items to get the full body text.
-		bodyMapping.Index = true
-		textMapping.Analyzer = "cjk" // see textMapping for details
-		docMapping.AddFieldMappingsAt("body", bodyMapping)
-
-		mapping := bleve.NewIndexMapping()
-		mapping.DefaultMapping = docMapping
-		idx, err = bleve.New(config.Config.SearchIndexPath, mapping)
-		if err != nil {
-			err = errors.Wrap(err, "error creating new index")
-		}
-	} else {
-		idx, err = bleve.Open(config.Config.SearchIndexPath)
-		if err != nil {
-			err = errors.Wrap(err, "error opening index")
-		}
-	}
-
-	index = idx
-
-	return &idx, err
-}
 
 // how many urls to index at a time
 const batchSize = 1000
@@ -107,11 +29,6 @@ func BuildIndex(ctx context.Context, db *sql.DB, limit int) (int, error) {
 		toIndexCount = limit
 	}
 
-	idx, err := GetIndex()
-	if err != nil {
-		return 0, errors.Wrap(err, "error getting index")
-	}
-
 	for indexedCount < toIndexCount {
 		// get documents to index
 		ents, err := getUnindexed(ctx, db)
@@ -120,7 +37,7 @@ func BuildIndex(ctx context.Context, db *sql.DB, limit int) (int, error) {
 		}
 
 		// index them
-		n, err := batchIndex(ctx, db, *idx, ents...)
+		n, err := batchIndex(ctx, db, ents...)
 		if err != nil {
 			return 0, err
 		}
@@ -140,13 +57,8 @@ func BuildIndex(ctx context.Context, db *sql.DB, limit int) (int, error) {
 
 // Index (or reindex) an individual document. If doc.Id is already present in
 // the search index it will be overwritten.
-func IndexDocument(ctx context.Context, db *sql.DB, doc types.SearchableEntity) error {
-	idx, err := GetIndex()
-	if err != nil {
-		return errors.Wrap(err, "error getting index")
-	}
-
-	err = (*idx).Index(doc.Id, doc)
+func IndexDocument(ctx context.Context, db *sql.DB, doc types.UrlDbEntity) error {
+	_, err := batchIndex(ctx, db, doc)
 	if err != nil {
 		return errors.Wrap(err, "error indexing document")
 	}
@@ -165,16 +77,110 @@ func IndexDocument(ctx context.Context, db *sql.DB, doc types.SearchableEntity) 
 	return nil
 }
 
-func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index, ents ...types.SearchableEntity) (int, error) {
-	batch := idx.NewBatch()
-	for _, ent := range ents {
-		batch.Index(ent.Id, ent)
+// The reason we need an int ID is due to the int requirement on rowid in the fts table.
+func generateEavId(e string, t string, a string, v string) (int64, error) {
+	shasum := util.HashSha1String(fmt.Sprintf("%s%s%s%s", e, t, a, v))
+
+	// take the first 15 characters of the sha1 hash, as this is the max that will
+	// fit into sqlite int column (it's signed, i think. otherwise we could take
+	// 16 chars)
+	hexId := shasum[0:15]
+
+	// convert to a base 10 number
+	return strconv.ParseInt(hexId, 16, 64)
+}
+
+/**
+ * Index an entity
+ */
+func indexEav(ctx context.Context, db *sql.Tx, e string, t string, a string, v string) error {
+	// insert into the fragments table
+	const qry = `
+		INSERT OR REPLACE INTO
+			fragment(id, e, t, a, v)
+				VALUES(?, ?, ?, ?, ?);
+	`
+
+	id, err := generateEavId(e, t, a, v)
+	if err != nil {
+		return errors.Wrap(err, "error generating eav id")
 	}
 
-	err := idx.Batch(batch)
+	_, err = db.ExecContext(ctx, qry, id, e, t, a, v)
 	if err != nil {
-		return 0, errors.Wrap(err, "batch error")
+		return errors.Wrap(err, "error inserting fragment")
 	}
+
+	return nil
+}
+
+func batchIndex(ctx context.Context, db *sql.DB, ents ...types.UrlDbEntity) (int, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	cleanupWithError := func(err error) error {
+		tx.Rollback()
+		return err
+	}
+
+	// @todo Could be much more efficient by not committing transaction for each row
+	for _, ent := range ents {
+
+		// vs is an array of structs containing `a` and `v` fields
+		vs := []struct {
+			a string
+			v *string
+		}{{"url", &ent.Url}, {"title", ent.Title}, {"description", ent.Description}}
+
+		// Insert basic URL data
+		for _, x := range vs {
+			table := "urls"
+			if x.v != nil {
+				err := indexEav(ctx, tx, ent.UrlMd5, table, x.a, *x.v)
+				if err != nil {
+					return 0, cleanupWithError(err)
+				}
+			}
+		}
+
+		// Insert fulltext data
+		if ent.Body != nil {
+			table := "documents"
+			chunk := ""
+			// Chunk documents by paragraphs, for now
+			for _, paragraph := range strings.Split(*ent.Body, "\n\n") {
+				chunk += strings.TrimSpace(paragraph)
+				if len(chunk) < 180 {
+					chunk += " "
+					continue
+				}
+
+				err := indexEav(ctx, tx, ent.UrlMd5, table, "content", chunk)
+				if err != nil {
+					return 0, cleanupWithError(err)
+				}
+
+				chunk = ""
+			}
+
+			// Grab straggling chunk. i.e. if the whole document is less than the threshold.
+			if len(chunk) > 0 {
+				err := indexEav(ctx, tx, ent.UrlMd5, table, "content", chunk)
+				if err != nil {
+					return 0, cleanupWithError(err)
+				}
+			}
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, err
+	}
+
+	// var err error
 
 	metas := []types.UrlMetaRow{}
 
@@ -194,7 +200,7 @@ func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index, ents ...types.
 		if strings.Contains(err.Error(), "database is locked") {
 			fmt.Println("database is locked, retrying...")
 			time.Sleep(1000 * time.Millisecond)
-			return batchIndex(ctx, db, idx, ents...)
+			return batchIndex(ctx, db, ents...)
 		}
 
 		return 0, errors.Wrap(err, "error marking doc as indexed")
@@ -203,7 +209,7 @@ func batchIndex(ctx context.Context, db *sql.DB, idx bleve.Index, ents ...types.
 	return len(ents), nil
 }
 
-func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, error) {
+func getUnindexed(ctx context.Context, db *sql.DB) ([]types.UrlDbEntity, error) {
 	const qry = `
 		SELECT
 			u.url_md5,
@@ -233,7 +239,7 @@ func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, er
 
 	// Put docs into a slice so that we can iterate over them to mark them as
 	// indexed. Otherwies we could add them to the batch directly.
-	var docs []types.SearchableEntity
+	var docs []types.UrlDbEntity
 
 	for rows.Next() {
 		var ent types.UrlDbEntity
@@ -251,22 +257,12 @@ func getUnindexed(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, er
 			ent.LastVisit = &t
 		}
 
-		doc := types.SearchableEntity{
-			Id:          ent.UrlMd5,
-			Url:         ent.Url,
-			Title:       ent.Title,
-			Description: ent.Description,
-			LastVisit:   ent.LastVisit,
-			Body:        ent.Body,
-			BodyMd5:     ent.BodyMd5,
-		}
-
-		if doc.Body != nil {
+		if ent.Body != nil {
 			plaintext := stripmd.Strip(*ent.Body)
-			doc.Body = &plaintext
+			ent.Body = &plaintext
 		}
 
-		docs = append(docs, doc)
+		docs = append(docs, ent)
 	}
 
 	return docs, nil
