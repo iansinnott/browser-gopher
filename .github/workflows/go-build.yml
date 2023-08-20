@@ -37,3 +37,29 @@ jobs:
       - name: Make Build
         run: |
           make build
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(echo $(git describe --tags --always))
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: true
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./dist/browser-gopher-${{ steps.get_version.outputs.VERSION }}/browser-gopher
+          asset_name: browser-gopher-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}
+          asset_content_type: application/octet-stream
