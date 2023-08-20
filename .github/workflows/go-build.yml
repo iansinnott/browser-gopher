@@ -41,6 +41,7 @@ jobs:
         run: echo ::set-output name=VERSION::$(echo $(git describe --tags --always))
 
       - name: Create Release
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         id: create_release
         uses: actions/create-release@v1
         env:
