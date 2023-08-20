@@ -169,10 +169,12 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) er
 	for i, row := range rows {
 		if i == 0 {
 			qry += "\n"
-		} else if i == n-1 {
-			qry += ";\n"
 		} else {
 			qry += ",\n"
+		}
+
+		if i == n-1 {
+			qry += ";\n"
 		}
 
 		md5 := util.HashMd5String(row.Url)
