@@ -15,5 +15,8 @@ build: dist
 	@echo "Building with system defaults..."
 	@CGO_ENABLED=0 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)"
 	@echo "Building $(NAME) $(VERSION) for $(shell go env GOOS)/$(shell go env GOARCH)..."
-	@CGO_ENABLED=0 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-darwin-arm64
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-darwin-amd64
+	@echo "Building $(NAME) $(VERSION) for linux/amd64..."
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-linux-amd64
 	@echo "Done."
