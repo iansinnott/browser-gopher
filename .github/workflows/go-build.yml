@@ -6,6 +6,26 @@ on:
       - "*"
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup env
+        run: echo "VERSION=$(git describe --tags --always)" >> $GITHUB_ENV
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
+          draft: false
+          prerelease: true
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -40,17 +60,6 @@ jobs:
       - name: Go build
         run: |
           CGO_ENABLED=0 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH}} go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=${{ env.VERSION }}" -o ./dist/browser-gopher-${{ env.VERSION }}-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
-          draft: false
-          prerelease: true
 
       - name: Upload Release Asset
         id: upload-release-asset
