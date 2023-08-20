@@ -18,4 +18,5 @@ build: dist
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-darwin-arm64
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-darwin-amd64
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-linux-amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-linux-arm64
 	@echo "Done."

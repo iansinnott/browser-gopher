@@ -33,9 +33,9 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Make Build
+      - name: Go build
         run: |
-          make build
+          CGO_ENABLED=0 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH}} go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
 
       - name: Get the version
         id: get_version
@@ -59,6 +59,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./dist/browser-gopher-${{ steps.get_version.outputs.VERSION }}/browser-gopher-linux-amd64
-          asset_name: browser-gopher-${{ steps.get_version.outputs.VERSION }}-linux-amd64
+          asset_path: ./dist/browser-gopher-${{ steps.get_version.outputs.VERSION }}/browser-gopher-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          asset_name: browser-gopher-${{ steps.get_version.outputs.VERSION }}-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           asset_content_type: application/octet-stream
