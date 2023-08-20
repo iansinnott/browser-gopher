@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/persistence"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
@@ -21,10 +22,14 @@ var inceptionTime time.Time = time.Unix(0, 0) // 1970-01-01
 
 // PopulateAll populates all records from browsers, ignoring the last updated time
 func PopulateAll(extractor types.Extractor) error {
-	return PopulateSinceTime(extractor, inceptionTime)
+	return PopulateSinceTime(extractor, inceptionTime, nil)
 }
 
-func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
+type PopulateOptions struct {
+	KeepTmpFiles bool
+}
+
+func PopulateSinceTime(extractor types.Extractor, since time.Time, opts *PopulateOptions) error {
 	conn, err := sql.Open("sqlite", extractor.GetDBPath())
 	ctx := context.TODO()
 
@@ -53,7 +58,18 @@ func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
 		}
 		// Remove interim file afterwards (otherwise these files eventually take up quite a bit of space)
 		defer func() {
-			if os.Remove(tmpPath) != nil {
+			keepTmpFiles := false
+			if opts != nil {
+				keepTmpFiles = opts.KeepTmpFiles
+			}
+
+			if keepTmpFiles {
+				logging.Debug().Println("keeping tmp file:", tmpPath)
+				return
+			}
+
+			err := os.Remove(tmpPath)
+			if err != nil {
 				log.Println("could not remove tmp file:", tmpPath)
 			}
 		}()
@@ -66,7 +82,7 @@ func PopulateSinceTime(extractor types.Extractor, since time.Time) error {
 		extractor.SetDBPath(tmpPath)
 
 		// Retry with udpated db path
-		return PopulateSinceTime(extractor, since)
+		return PopulateSinceTime(extractor, since, opts)
 	}
 
 	urls, err := extractor.GetAllUrlsSince(ctx, conn, since)
