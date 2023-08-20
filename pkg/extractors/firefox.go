@@ -65,7 +65,7 @@ func (a *FirefoxExtractor) VerifyConnection(ctx context.Context, conn *sql.DB) (
 }
 
 func (a *FirefoxExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.UrlRow, error) {
-	rows, err := conn.QueryContext(ctx, firefoxUrls, since.Format(util.SQLiteDateTime))
+	rows, err := conn.QueryContext(ctx, firefoxUrls, since.UTC().Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -103,7 +103,7 @@ func (a *FirefoxExtractor) GetAllUrlsSince(ctx context.Context, conn *sql.DB, si
 }
 
 func (a *FirefoxExtractor) GetAllVisitsSince(ctx context.Context, conn *sql.DB, since time.Time) ([]types.VisitRow, error) {
-	rows, err := conn.QueryContext(ctx, firefoxVisits, since.Format(util.SQLiteDateTime))
+	rows, err := conn.QueryContext(ctx, firefoxVisits, since.UTC().Format(util.SQLiteDateTime))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err

@@ -15,6 +15,7 @@ import (
 	// _ "github.com/mattn/go-sqlite3"
 
 	"github.com/iansinnott/browser-gopher/pkg/config"
+	"github.com/iansinnott/browser-gopher/pkg/logging"
 	"github.com/iansinnott/browser-gopher/pkg/types"
 	"github.com/iansinnott/browser-gopher/pkg/util"
 	"github.com/samber/lo"
@@ -173,10 +174,6 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) er
 			qry += ",\n"
 		}
 
-		if i == n-1 {
-			qry += ";\n"
-		}
-
 		md5 := util.HashMd5String(row.Url)
 		var indexed_at int64
 
@@ -185,9 +182,18 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) er
 		}
 
 		qry += fmt.Sprintf("('%s', %d)", md5, indexed_at)
+
+		if i == n-1 {
+			qry += ";"
+		}
 	}
 
 	_, err := db.ExecContext(ctx, qry)
+
+	if err != nil {
+		logging.Debug().Println("error sql", qry)
+	}
+
 	return err
 }
 

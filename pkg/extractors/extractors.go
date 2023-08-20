@@ -97,7 +97,7 @@ func BuildExtractorList() ([]types.Extractor, error) {
 			},
 		},
 
-		// Firefox-like
+		// Safari-like
 		// @todo What is the path for safari preview edition?
 		{
 			name:  "safari",
