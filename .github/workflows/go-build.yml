@@ -2,8 +2,6 @@ name: Go Build
 
 on:
   push:
-    branches:
-      - master
     tags:
       - "*"
 
