@@ -29,7 +29,6 @@ var searchCmd = &cobra.Command{
 		}
 
 		dataProvider := search.NewSqlSearchProvider(cmd.Context(), config.Config)
-		searchProvider := search.NewBleveSearchProvider(cmd.Context(), config.Config)
 		initialQuery := ""
 
 		if len(args) > 0 {
@@ -43,7 +42,7 @@ var searchCmd = &cobra.Command{
 				return
 			}
 
-			result, err := searchProvider.SearchUrls(initialQuery)
+			result, err := dataProvider.SearchUrls(initialQuery)
 			if err != nil {
 				fmt.Println("search error", err)
 				os.Exit(1)
@@ -84,7 +83,7 @@ var searchCmd = &cobra.Command{
 			return
 		}
 
-		p, err := tui.GetSearchProgram(cmd.Context(), initialQuery, dataProvider, searchProvider, nil)
+		p, err := tui.GetSearchProgram(cmd.Context(), initialQuery, dataProvider, dataProvider, nil)
 		if err != nil {
 			fmt.Println("could not get search program:", err)
 			os.Exit(1)

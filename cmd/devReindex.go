@@ -27,12 +27,6 @@ var reindexCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = os.RemoveAll(config.Config.SearchIndexPath)
-		if err != nil {
-			fmt.Println("could not remove search index", err)
-			os.Exit(1)
-		}
-
 		fmt.Println("Reindexing everything...")
 		t := time.Now()
 		n, err := populate.ReindexWithLimit(cmd.Context(), dbConn, limit)

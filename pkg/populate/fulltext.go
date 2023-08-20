@@ -78,10 +78,6 @@ func PopulateFulltext(ctx context.Context, db *sql.DB) (int, error) {
 		indexedCount += n
 	}
 
-	idx, err := GetIndex()
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to get index")
-	}
 	indexedCount = 0
 	toIndexCount, err := persistence.CountUrlsWhere(ctx, db,
 		`documents.body NOT NULL 
@@ -98,7 +94,7 @@ func PopulateFulltext(ctx context.Context, db *sql.DB) (int, error) {
 			return 0, errors.Wrap(err, "error getting unindexed bodies")
 		}
 
-		n, err := batchIndex(ctx, db, *idx, ents...)
+		n, err := batchIndex(ctx, db, ents...)
 		if err != nil {
 			return 0, errors.Wrap(err, "error indexing batch")
 		}
@@ -115,7 +111,7 @@ func PopulateFulltext(ctx context.Context, db *sql.DB) (int, error) {
 	return indexedCount, nil
 }
 
-func getUnindexedBodyRows(ctx context.Context, db *sql.DB) ([]types.SearchableEntity, error) {
+func getUnindexedBodyRows(ctx context.Context, db *sql.DB) ([]types.UrlDbEntity, error) {
 	qry := `
 			SELECT
 				u.url_md5,
@@ -142,17 +138,17 @@ func getUnindexedBodyRows(ctx context.Context, db *sql.DB) ([]types.SearchableEn
 	}
 	defer rows.Close()
 
-	var ents []types.SearchableEntity
+	var ents []types.UrlDbEntity
 
 	for rows.Next() {
 		var (
-			ent types.SearchableEntity
+			ent types.UrlDbEntity
 			ts  int64
 			t   time.Time
 		)
 
 		err := rows.Scan(
-			&ent.Id,
+			&ent.UrlMd5,
 			&ent.Url,
 			&ent.Title,
 			&ent.Description,

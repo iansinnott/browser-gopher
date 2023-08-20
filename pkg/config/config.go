@@ -9,10 +9,9 @@ import (
 )
 
 type AppConfig struct {
-	AppDataPath     string
-	BackupDir       string
-	DBPath          string
-	SearchIndexPath string
+	AppDataPath string
+	BackupDir   string
+	DBPath      string
 }
 
 // initialize the config object and perform setup tasks.
@@ -33,7 +32,6 @@ func newConfig() *AppConfig {
 	}
 
 	conf.DBPath = filepath.Join(conf.AppDataPath, "db.sqlite")
-	conf.SearchIndexPath = filepath.Join(conf.AppDataPath, "searchindex.bleve")
 
 	return conf
 }

@@ -27,19 +27,20 @@ func (p SqlSearchProvider) SearchUrls(query string) (*SearchResult, error) {
 	}
 	defer conn.Close()
 
-	query = "%" + query + "%"
-
 	var count uint
 	row := conn.QueryRowContext(p.ctx, `
 SELECT
-	COUNT(*)
-FROM
-  urls
-WHERE
-  url LIKE ?
-  OR title LIKE ?
-  OR description LIKE ?;
-	`, query, query, query)
+  count(*)
+FROM (
+  SELECT
+    e
+  FROM
+    fragment_fts
+  WHERE
+    fragment_fts MATCH ?
+  GROUP BY
+    e);
+	`, query)
 	if row.Err() != nil {
 		return nil, errors.Wrap(row.Err(), "row count error")
 	}
@@ -49,22 +50,45 @@ WHERE
 	}
 
 	rows, err := conn.QueryContext(p.ctx, `
+WITH
+  search_fragments AS (
+    SELECT
+      fts.rank,
+      fts.e,
+      fts.a,
+      snippet (fragment_fts,
+        - 1,
+        '<mark>',
+        '</mark>',
+        '…',
+        64) AS snippet
+    FROM
+      fragment_fts fts
+      LEFT OUTER JOIN urls d ON d.url_md5 = fts.e
+    WHERE
+      fragment_fts MATCH ?
+    ORDER BY
+      d.last_visit DESC
+    LIMIT
+      500
+  )
 SELECT
-	url_md5,
-  url,
-  title,
-  description,
-  last_visit
+  t.url_md5,
+  t.url,
+	t.title,
+	t.description,
+  t.last_visit,
+  group_concat (m.snippet, '\n') AS 'match',
+  count(m.snippet) as 'match_count',
+  sum(m.rank) as 'sum_rank'
 FROM
-  urls
-WHERE
-  url LIKE ?
-  OR title LIKE ?
-  OR description LIKE ?
-ORDER BY
-  last_visit DESC
+  search_fragments m
+  inner join urls t on t.url_md5 = m.e
+GROUP BY
+  m.e
+ORDER BY t.last_visit DESC
 LIMIT 100;
-	`, query, query, query)
+	`, query)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "query error")
@@ -73,12 +97,12 @@ LIMIT 100;
 		return nil, errors.Wrap(rows.Err(), "query error")
 	}
 
-	xs := []types.UrlDbEntity{}
+	xs := []types.UrlDbSearchEntity{}
 
 	for rows.Next() {
-		var x types.UrlDbEntity
+		var x types.UrlDbSearchEntity
 		var ts int64
-		err := rows.Scan(&x.UrlMd5, &x.Url, &x.Title, &x.Description, &ts)
+		err := rows.Scan(&x.UrlMd5, &x.Url, &x.Title, &x.Description, &ts, &x.Match, &x.MatchCount, &x.SumRank)
 		if err != nil {
 			return nil, errors.Wrap(err, "row error")
 		}
@@ -87,8 +111,8 @@ LIMIT 100;
 		xs = append(xs, x)
 	}
 
-	searchResult := lo.Map(xs, func(x types.UrlDbEntity, i int) types.SearchableEntity {
-		return types.UrlDbEntityToSearchableEntity(x)
+	searchResult := lo.Map(xs, func(x types.UrlDbSearchEntity, i int) types.SearchableEntity {
+		return types.UrlDbSearchEntityToSearchableEntity(x)
 	})
 
 	return &SearchResult{Urls: searchResult, Count: count}, nil

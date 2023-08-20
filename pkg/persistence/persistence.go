@@ -164,12 +164,17 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) er
 			urls_meta(url_md5, indexed_at)
 				VALUES`
 
+	n := len(rows)
+
 	for i, row := range rows {
 		if i == 0 {
 			qry += "\n"
+		} else if i == n-1 {
+			qry += ";\n"
 		} else {
 			qry += ",\n"
 		}
+
 		md5 := util.HashMd5String(row.Url)
 		var indexed_at int64
 
@@ -179,8 +184,6 @@ func InsertUrlMeta(ctx context.Context, db *sql.DB, rows ...types.UrlMetaRow) er
 
 		qry += fmt.Sprintf("('%s', %d)", md5, indexed_at)
 	}
-
-	qry += ";"
 
 	_, err := db.ExecContext(ctx, qry)
 	return err
