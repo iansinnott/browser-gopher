@@ -1,0 +1,32 @@
+name: Go Build
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.19
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Setup env
+        run: echo "VERSION=$(git describe --tags --always)" >> $GITHUB_ENV
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Make Build
+        run: |
+          make build
