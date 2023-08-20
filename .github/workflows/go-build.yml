@@ -33,13 +33,13 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Go build
-        run: |
-          CGO_ENABLED=0 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH}} go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=$(VERSION)" -o $(OUTDIR)/$(NAME)-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::$(echo $(git describe --tags --always))
+
+      - name: Go build
+        run: |
+          CGO_ENABLED=0 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH}} go build -ldflags "-X github.com/iansinnott/browser-gopher/cmd.Version=${{ env.VERSION }}" -o ./dist/browser-gopher-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
 
       - name: Create Release
         id: create_release
