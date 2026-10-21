@@ -84,7 +84,7 @@ browser-gopher browserparrot --db-path ~/.config/uncloud/persistory.db
 
 (This may be useful if you tried out [Uncloud](https://www.uncloud.gg/) and have a browserparrot-like database somewhere else on your system)
 
-[browserparrot]: (https://www.browserparrot.com/)
+[browserparrot]: (https://web.archive.org/web/20231205024743/https://www.browserparrot.com/)
 
 ## Todo / Wishlist
 
